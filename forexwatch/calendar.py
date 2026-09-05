@@ -261,11 +261,11 @@ class EconomicCalendar:
         nearest = min(soon, key=lambda e: e.ts)
         remaining = nearest.minutes_from(now)
         if remaining <= 15:
-            advice = "Kein Neueinstieg – Spreads weiten sich, Slippage-Gefahr"
+            advice = "Jetzt nicht einsteigen: kurz vor der Zahl werden die Kurse unruhig."
         elif remaining <= 45:
-            advice = "Nur mit reduzierter Groesse handeln, Stop weiter fassen"
+            advice = "Wenn ueberhaupt, dann nur mit kleiner Position und weitem Stop."
         else:
-            advice = "Termin einplanen, Position vorher absichern"
+            advice = "Termin einplanen und offene Positionen vorher absichern."
         return {
             "title": nearest.title,
             "currency": nearest.currency,

@@ -134,8 +134,18 @@ class Setup:
     levels: Levels | None = None
     regime: str = "unbekannt"
     session: str = ""
+    # Klartext-Anzeige (siehe scoring.py). Der Tachowert laeuft von 1 bis 100:
+    # 100 heisst kaufen, 1 heisst verkaufen, 50 heisst abwarten.
+    score: int = 50
+    action: str = "Abwarten"
+    tension: str = ""
+    headline: str = ""
     notes: list[str] = field(default_factory=list)
     event_risk: dict[str, Any] | None = None
+    #: Vorschlag fuer die Positionsgroesse, vom Scanner gefuellt
+    position: dict[str, Any] | None = None
+    #: Anstehende wichtige Termine fuer dieses Paar
+    events: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

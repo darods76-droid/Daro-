@@ -13,13 +13,20 @@ from forexwatch.storage import Storage
 from tests.conftest import make_series
 
 
-def make_setup(state="ARMED", readiness=70.0, bias="long", symbol="EURUSD") -> Setup:
+def make_setup(state="ARMED", readiness=70.0, bias="long", symbol="EURUSD", score=76) -> Setup:
+    from forexwatch.analysis.scoring import action_for, headline_for, tension_for
+
+    action = action_for(score)
+    tension = tension_for(state, readiness)
     return Setup(
         symbol=symbol, timeframe="1h", ts=1_700_000_000, price=1.0850,
         state=state, readiness=readiness, direction=40.0, confidence=80.0, bias=bias,
-        hits=[SignalHit("squeeze", "Kompression", 0.8, 0.0, 2.4, "Squeeze seit 12 Kerzen", "kompression")],
+        hits=[SignalHit("squeeze", "Markt zieht sich zusammen", 0.8, 0.0, 2.4,
+                        "Die Kursspanne ist ungewoehnlich eng.", "kompression")],
         levels=Levels(1.09, 1.086, 1.098, 1.102, 1.09, 1.086, 0.001, 1.8),
-        regime="Trend", session="London",
+        regime="Der Kurs laeuft in eine Richtung", session="London",
+        score=score, action=action, tension=tension,
+        headline=headline_for(symbol, state, action, tension),
     )
 
 
@@ -84,15 +91,24 @@ class TestAlarmtext:
     def test_enthaelt_die_wesentlichen_angaben(self):
         alert = AlertEngine.compose(make_setup(), "neu erkannt")
         assert "EURUSD" in alert.message
-        assert "Bereitschaft 70" in alert.message
-        assert "Stop" in alert.message
-        assert "Kompression" in alert.message
+        assert "76 von 100" in alert.message          # der Tachowert
+        assert "Eher kaufen" in alert.message          # die Empfehlung im Klartext
+        assert "Stop bei 1.086" in alert.message
+        assert "Markt zieht sich zusammen" in alert.message
         assert alert.payload["symbol"] == "EURUSD"
 
-    def test_richtungswort_wird_uebersetzt(self):
-        assert "aufwaerts" in AlertEngine.compose(make_setup(bias="long"), "x").message
-        assert "abwaerts" in AlertEngine.compose(make_setup(bias="short"), "x").message
-        assert "beidseitig" in AlertEngine.compose(make_setup(bias="neutral"), "x").message
+    def test_ohne_fachbegriffe(self):
+        """Der Text soll ohne Vorwissen verstaendlich sein."""
+        message = AlertEngine.compose(make_setup(), "neu erkannt").message
+        for jargon in ("Bereitschaft", "Readiness", "ATR", "CRV", "Squeeze",
+                       "Momentum", "Divergenz", "Perzentil", "ARMED"):
+            assert jargon not in message, jargon
+
+    def test_einstieg_passt_zur_richtung(self):
+        assert "Kaufen ueber 1.09" in AlertEngine.compose(make_setup(bias="long"), "x").message
+        assert "Verkaufen unter 1.086" in AlertEngine.compose(make_setup(bias="short"), "x").message
+        offen = AlertEngine.compose(make_setup(bias="neutral"), "x").message
+        assert "1.09" in offen and "1.086" in offen
 
     @pytest.mark.asyncio
     async def test_versand_ueberlebt_defekten_empfaenger(self):

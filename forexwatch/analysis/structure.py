@@ -88,14 +88,14 @@ def liquidity_sweep(series: Series, lookback: int = 30, wick_ratio: float = 0.55
             "direction": "short",
             "level": prior_high,
             "wick_ratio": round(upper_wick / rng, 3),
-            "text": "Liquiditaet ueber dem letzten Hoch abgeholt, Kurs abgewiesen",
+            "text": "Der Kurs schoss kurz ueber das letzte Hoch und fiel sofort zurueck.",
         }
     if last.low < prior_low and last.close > prior_low and lower_wick / rng >= wick_ratio:
         return {
             "direction": "long",
             "level": prior_low,
             "wick_ratio": round(lower_wick / rng, 3),
-            "text": "Liquiditaet unter dem letzten Tief abgeholt, Kurs abgewiesen",
+            "text": "Der Kurs fiel kurz unter das letzte Tief und sprang sofort zurueck.",
         }
     return None
 
@@ -118,7 +118,8 @@ def divergence(
             return {
                 "direction": "short",
                 "strength": min(1.0, abs(oa - ob) / 12.0),
-                "text": f"Baerische Divergenz: Preis hoeher, Momentum schwaecher ({oa:.0f} -> {ob:.0f})",
+                "text": "Der Kurs steigt noch, aber mit immer weniger Kraft. "
+                        "Oft ein Zeichen fuer eine Wende nach unten.",
             }
 
     lows = [s for s in recent_swings(swings, "low", 4) if n - s.index <= max_age]
@@ -129,7 +130,8 @@ def divergence(
             return {
                 "direction": "long",
                 "strength": min(1.0, abs(ob - oa) / 12.0),
-                "text": f"Bullische Divergenz: Preis tiefer, Momentum staerker ({oa:.0f} -> {ob:.0f})",
+                "text": "Der Kurs faellt noch, aber der Verkaufsdruck laesst nach. "
+                        "Oft ein Zeichen fuer eine Wende nach oben.",
             }
     return None
 

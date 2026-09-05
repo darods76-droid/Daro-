@@ -96,31 +96,40 @@ class AlertEngine:
 
     @staticmethod
     def compose(setup: Setup, reason: str) -> Alert:
-        arrow = {"long": "aufwaerts", "short": "abwaerts", "neutral": "beidseitig"}[setup.bias]
+        """Alarmtext in Klartext – ohne Fachbegriffe und ohne Zahlenkolonnen."""
         headline = {
-            "ARMED": f"{setup.symbol}: Bewegung steht bevor ({arrow})",
-            "TRIGGERED": f"{setup.symbol}: Ausbruch laeuft ({arrow})",
-        }.get(setup.state, f"{setup.symbol}: {setup.state}")
-
-        top = sorted(setup.hits, key=lambda h: h.readiness * h.weight, reverse=True)[:3]
-        reasons = " · ".join(f"{h.label}: {h.detail}" for h in top)
+            "ARMED": f"{setup.symbol}: Bewegung steht bevor",
+            "TRIGGERED": f"{setup.symbol}: Die Bewegung hat begonnen",
+        }.get(setup.state, f"{setup.symbol}")
 
         lines = [
             headline,
-            f"Timeframe {setup.timeframe} | Kurs {setup.price} | Regime {setup.regime}",
-            f"Bereitschaft {setup.readiness:.0f}/100 · Richtung {setup.direction:+.0f} · "
-            f"Vertrauen {setup.confidence:.0f}/100",
+            "",
+            setup.headline,
+            "",
+            f"Anzeige: {setup.score} von 100 – {setup.action}",
         ]
+
         if setup.levels:
-            lines.append(
-                f"Ausbruch ueber {setup.levels.trigger_long} / unter {setup.levels.trigger_short} | "
-                f"Stop {setup.levels.stop} | Ziel {setup.levels.take_profit_1} (CRV {setup.levels.rr})"
-            )
-        if reasons:
-            lines.append(f"Gruende: {reasons}")
+            lv = setup.levels
+            if setup.bias == "short":
+                lines.append(f"Verkaufen unter {lv.trigger_short}")
+            elif setup.bias == "long":
+                lines.append(f"Kaufen ueber {lv.trigger_long}")
+            else:
+                lines.append(f"Ausbruch ueber {lv.trigger_long} oder unter {lv.trigger_short}")
+            lines.append(f"Stop bei {lv.stop} – Ziel bei {lv.take_profit_1}")
+
+        top = sorted(setup.hits, key=lambda h: h.readiness * h.weight, reverse=True)[:3]
+        if top:
+            lines.append("")
+            lines.append("Warum:")
+            for hit in top:
+                lines.append(f"  - {hit.label}")
+
         if setup.event_risk:
-            lines.append(f"Achtung: {setup.event_risk['title']} in {setup.event_risk['minutes']} Min.")
-        lines.append(f"Ausloeser: {reason}")
+            lines.append("")
+            lines.append(f"Achtung: {setup.event_risk['title']} in {setup.event_risk['minutes']} Minuten.")
 
         return Alert(
             ts=int(time.time()),

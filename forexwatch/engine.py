@@ -30,6 +30,7 @@ from .config import settings
 from .models import Alert, Series, Setup
 from .providers import get_provider
 from .providers.base import timeframe_seconds
+from .risk import position_plan
 from .storage import Storage
 
 log = logging.getLogger("forexwatch.engine")
@@ -165,6 +166,9 @@ class Engine:
             if timeframe == exec_tf
         }
 
+        # Aktuelle Kurse als Umrechnungsbasis fuer die Pip-Werte
+        rates = {sym: f.price for sym, f in peers.items()}
+
         # 3) Bewerten
         setups: list[Setup] = []
         for symbol in settings.pairs:
@@ -189,6 +193,20 @@ class Engine:
             except Exception as exc:
                 log.exception("Bewertung von %s fehlgeschlagen: %s", symbol, exc)
                 continue
+
+            # Positionsgroesse und Termine gleich mitliefern, damit die
+            # Oberflaeche alles Wesentliche in einem Zug bekommt.
+            setup.events = [e.to_dict() for e in calendar.for_symbol(symbol, 96, "hoch")[:5]]
+            if setup.levels:
+                setup.position = position_plan(
+                    symbol=symbol,
+                    entry=setup.levels.entry,
+                    stop=setup.levels.stop,
+                    balance=settings.account_balance,
+                    risk_percent=settings.risk_percent,
+                    account_currency=settings.account_currency,
+                    rates=rates,
+                ).to_dict()
 
             setups.append(setup)
             self._setups[symbol] = setup

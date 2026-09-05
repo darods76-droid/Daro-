@@ -86,18 +86,41 @@ Danach im Browser: **http://127.0.0.1:8000**
 Es wird kein API-Schlüssel benötigt. Als Datenquelle dient standardmäßig Yahoo
 Finance, der Wirtschaftskalender kommt von zwei frei zugänglichen Quellen.
 
-### Konfiguration
+### Kursdaten von Capital.com
 
-Alle Einstellungen sind optional. Kopiere `.env.example` nach `.env` und passe
-an, was du brauchen kannst:
+Ohne jede Einrichtung läuft die App mit Kursen von Yahoo Finance. Hinterlegst du
+deine Capital.com-Zugangsdaten, nutzt sie automatisch die Kurse deines Brokers —
+also genau die, zu denen du auch handelst.
+
+Den Schlüssel findest du im Capital.com-Konto unter **Einstellungen → API-Schlüssel**.
+Trage in die `.env` ein:
+
+```bash
+FW_CAPITAL_API_KEY=dein-schluessel
+FW_CAPITAL_IDENTIFIER=deine@email.de
+FW_CAPITAL_PASSWORD=dein-api-passwort      # nicht das Login-Passwort
+FW_CAPITAL_DEMO=1                          # 1 = Demokonto, 0 = Echtgeld
+```
+
+Mehr ist nicht nötig: `FW_PROVIDER=auto` erkennt die Zugangsdaten und schaltet um.
+Fehlt eine der Angaben oder lehnt Capital.com die Anmeldung ab, springt die App
+ohne Unterbrechung auf Yahoo zurück und schreibt es ins Protokoll.
+
+Was Capital.com gegenüber Yahoo bringt: Geld- und Briefkurs statt nur eines
+Mittelkurses (der Spread ist damit direkt ablesbar), ein natives Vier-Stunden-Fenster
+und dieselben Kurse, die dein Broker stellt.
+
+### Weitere Einstellungen
+
+Alle Einstellungen sind optional. Kopiere `.env.example` nach `.env`:
 
 ```bash
 FW_PAIRS=EURUSD,GBPUSD,USDJPY,USDCHF,AUDUSD,USDCAD,NZDUSD,EURJPY,EURGBP,GBPJPY
-FW_TIMEFRAMES=15m,1h,4h,1d     # der erste ist der Ausführungs-Timeframe
-FW_SCAN_INTERVAL=60            # Sekunden zwischen zwei Scans
-FW_ARM_THRESHOLD=62            # ab diesem Wert gilt ein Setup als scharf
-FW_TELEGRAM_TOKEN=...          # optionale Alarme per Telegram
-FW_WEBHOOK_URL=...             # optionale Alarme per Webhook
+FW_TIMEFRAMES=15m,1h,4h,1d     # das erste Fenster ist das für Ein- und Ausstiege
+FW_SCAN_INTERVAL=60            # Sekunden zwischen zwei Prüfungen
+FW_ARM_THRESHOLD=62            # ab hier gilt ein Paar als unter hoher Spannung
+FW_TELEGRAM_TOKEN=...          # optionale Meldungen per Telegram
+FW_WEBHOOK_URL=...             # optionale Meldungen per Webhook
 ```
 
 Neben Währungspaaren funktionieren auch `XAUUSD` (Gold), `XAGUSD` (Silber) und
@@ -105,23 +128,38 @@ Neben Währungspaaren funktionieren auch `XAUUSD` (Gold), `XAGUSD` (Silber) und
 
 ---
 
-## Die vier Zustände
+## Die Anzeige
 
-Der Zustand ist die eigentliche Handlungsanweisung:
+Das Programm zeigt zwei Dinge, und die muss man auseinanderhalten.
 
-| Zustand | Bedeutung |
+### Der Tacho: 1 bis 100
+
+| Wert | Bedeutung |
 |---|---|
-| `WATCH` | Nichts zu tun, nur beobachten. |
-| `ARMED` | Der Markt ist aufgeladen, ein Ausbruch steht bevor. **Das ist der Vorlauf.** |
-| `TRIGGERED` | Die Ausbruchsmarke wurde genommen, die Bewegung läuft an. |
-| `COOLDOWN` | Die Bewegung ist bereits gelaufen — ein Einstieg wäre zu spät. |
-| `GESCHLOSSEN` | Wochenende, der Devisenmarkt ruht. |
+| **82–100** | Kaufen |
+| **61–81** | Eher kaufen |
+| **41–60** | Abwarten |
+| **20–40** | Eher verkaufen |
+| **1–19** | Verkaufen |
 
-Dazu drei Kennzahlen: **Bereitschaft** (0–100, wie aufgeladen), **Richtung**
-(−100…+100, wohin die Hinweise zeigen) und **Vertrauen** (0–100, wie einig sich
-die Einzelsignale sind).
+Der Zeiger verrechnet die Richtung mit der Einigkeit der Einzelsignale. Sind
+sich die Signale uneins, bleibt er nahe der Mitte, auch wenn eine Richtung
+rechnerisch überwiegt.
 
----
+### Die Spannung: baut sich etwas auf?
+
+| Anzeige | Bedeutung |
+|---|---|
+| **Ruhig** | Es passiert wenig. Nichts zu tun. |
+| **Es baut sich etwas auf** | Der Markt wird enger. Im Auge behalten. |
+| **Hohe Spannung** | Eine Bewegung steht bevor. **Darauf kommt es an.** |
+| **Bewegung läuft** | Der Schub hat begonnen — zum Einsteigen meist zu spät. |
+| **Bewegung vorbei** | Auf einen Rücksetzer warten. |
+
+**Die Spannung ist der belastbare Teil, der Tacho nicht.** Steht ein Paar auf
+*Hohe Spannung*, bewegt es sich danach gut doppelt so oft deutlich wie sonst.
+Die Richtung dagegen trifft nur knapp besser als ein Münzwurf. Nutze also die
+Spannung als Wecker und entscheide die Richtung selbst.
 
 ## Woran das System eine bevorstehende Bewegung erkennt
 
@@ -215,6 +253,7 @@ forexwatch/
 ├── storage.py           SQLite: Kerzen-Cache, Verlauf, Alarme
 ├── providers/           Datenquellen
 │   ├── base.py            Schnittstelle und Resampling
+│   ├── capital.py         Capital.com, mit Zugangsdaten
 │   ├── yahoo.py           Standard, ohne Schlüssel
 │   ├── twelvedata.py      optional, mit Schlüssel
 │   └── synthetic.py       Offline-Betrieb und Tests
@@ -249,7 +288,7 @@ Scan nicht ab. Ein toter Alarmkanal hält den Scanner nicht an.
 ## Tests
 
 ```bash
-python -m pytest          # 124 Tests
+python -m pytest          # 143 Tests
 ```
 
 Der wichtigste Test ist `tests/test_backtest.py::TestKeinBlickInDieZukunft`.
@@ -262,9 +301,10 @@ Nachweis wären sämtliche Zahlen weiter oben wertlos.
 
 ## Grenzen
 
-- **Yahoo-Daten sind Broker-Mittelkurse ohne echtes Volumen.** Die
-  Volumenspalte im FX-Bereich ist unbrauchbar und wird deshalb nirgends
-  ausgewertet. Für den Handel weichen die Kurse deines Brokers leicht ab.
+- **Yahoo-Daten sind Mittelkurse ohne echtes Volumen.** Die Volumenspalte im
+  FX-Bereich ist unbrauchbar und wird deshalb nirgends ausgewertet; die Kurse
+  weichen leicht von denen deines Brokers ab. Mit Capital.com-Zugangsdaten
+  entfällt beides.
 - **Die letzte Kerze ist unvollständig.** Die Analyse arbeitet bewusst mit dem
   laufenden Stand; kurz nach einem Kerzenschluss kann ein Signal daher noch
   wechseln.

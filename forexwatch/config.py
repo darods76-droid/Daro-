@@ -48,14 +48,25 @@ def _env_int(key: str, default: int) -> int:
         return default
 
 
+def _env_bool(key: str, default: bool = False) -> bool:
+    value = _env(key, "1" if default else "0").lower()
+    return value in ("1", "true", "yes", "ja", "on")
+
+
 def _env_list(key: str, default: str) -> list[str]:
     return [item.strip().upper() for item in _env(key, default).split(",") if item.strip()]
 
 
 @dataclass(frozen=True)
 class Settings:
-    provider: str = _env("FW_PROVIDER", "yahoo")
+    provider: str = _env("FW_PROVIDER", "auto")
     twelvedata_key: str = _env("FW_TWELVEDATA_KEY", "")
+
+    # Capital.com – bevorzugte Quelle, sobald die drei Angaben vorliegen
+    capital_api_key: str = _env("FW_CAPITAL_API_KEY", "")
+    capital_identifier: str = _env("FW_CAPITAL_IDENTIFIER", "")
+    capital_password: str = _env("FW_CAPITAL_PASSWORD", "")
+    capital_demo: bool = _env_bool("FW_CAPITAL_DEMO", True)
 
     pairs: list[str] = field(
         default_factory=lambda: _env_list(
@@ -82,6 +93,11 @@ class Settings:
     risk_percent: float = _env_float("FW_RISK_PERCENT", 1.0)
 
     db_path: Path = DATA_DIR / "forexwatch.db"
+
+    @property
+    def capital_ready(self) -> bool:
+        """Liegen alle drei Angaben fuer Capital.com vor?"""
+        return bool(self.capital_api_key and self.capital_identifier and self.capital_password)
 
     @property
     def execution_timeframe(self) -> str:

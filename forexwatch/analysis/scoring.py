@@ -83,6 +83,101 @@ def _confidence_score(hits: list[SignalHit], direction: float) -> float:
     return round(max(0.0, min(100.0, score)), 1)
 
 
+# Der Tacho laeuft von 1 bis 100. Die Grenzen sind bewusst grob: eine
+# feinere Abstufung wuerde eine Genauigkeit vortaeuschen, die die
+# Richtungsprognose nicht hat.
+# Symmetrisch um die Mitte: 20 liegt noch bei "Eher verkaufen", 80 bei
+# "Eher kaufen". Erst darunter bzw. darueber wird es deutlich.
+ACTION_BANDS: tuple[tuple[int, str], ...] = (
+    (19, "Verkaufen"),
+    (40, "Eher verkaufen"),
+    (60, "Abwarten"),
+    (81, "Eher kaufen"),
+    (100, "Kaufen"),
+)
+
+
+def tacho_score(direction: float, confidence: float) -> int:
+    """Richtung und Einigkeit zu einer Zahl von 1 bis 100 verrechnen.
+
+    Die Einigkeit der Einzelsignale zieht den Zeiger zur Mitte: eine klare
+    Richtung, auf die sich kaum ein Signal einigt, darf nicht denselben
+    Ausschlag erzeugen wie eine, hinter der alles steht.
+    """
+    weight = 0.4 + 0.6 * max(0.0, min(100.0, confidence)) / 100.0
+    value = 50.0 + (direction / 2.0) * weight
+    return int(max(1, min(100, round(value))))
+
+
+def action_for(score: int) -> str:
+    """Handlungsempfehlung in Klartext."""
+    for limit, label in ACTION_BANDS:
+        if score <= limit:
+            return label
+    return "Abwarten"
+
+
+def tension_for(state: str, readiness: float) -> str:
+    """Wie stark sich eine Bewegung aufbaut – in Worten statt in Zahlen."""
+    if state == STATE_CLOSED:
+        return "Markt geschlossen"
+    if state == STATE_TRIGGERED:
+        return "Bewegung laeuft"
+    if state == STATE_COOLDOWN:
+        return "Bewegung vorbei"
+    if readiness >= settings.arm_threshold:
+        return "Hohe Spannung"
+    if readiness >= 45:
+        return "Es baut sich etwas auf"
+    return "Ruhig"
+
+
+def headline_for(symbol: str, state: str, action: str, tension: str) -> str:
+    """Ein Satz, der Richtung und Spannung zusammen erklaert.
+
+    Beides muss gemeinsam erzaehlt werden. Ein Tacho auf "Kaufen" waehrend
+    am Markt nichts passiert, ist keine Kaufaufforderung, sondern nur die
+    Feststellung, dass der Trend nach oben zeigt. Wuerde die Ueberschrift
+    nur den Zustand nennen, staende sie im Widerspruch zum Zeiger.
+    """
+    richtung = {
+        "Kaufen": "nach oben",
+        "Eher kaufen": "eher nach oben",
+        "Eher verkaufen": "eher nach unten",
+        "Verkaufen": "nach unten",
+    }.get(action, "")
+
+    if state == STATE_CLOSED:
+        return f"{symbol}: Der Markt ist geschlossen. Die Anzeige stammt vom letzten Handelstag."
+
+    if state == STATE_TRIGGERED:
+        if richtung:
+            return f"{symbol}: Die Bewegung {richtung} hat begonnen. Fuer einen Einstieg ist es meist schon spaet."
+        return f"{symbol}: Die Bewegung hat begonnen. Fuer einen Einstieg ist es meist schon spaet."
+
+    if state == STATE_COOLDOWN:
+        return f"{symbol}: Der Schub ist gelaufen. Auf einen Ruecksetzer warten."
+
+    if state == STATE_ARMED:
+        if not richtung:
+            return (
+                f"{symbol}: Es baut sich eine Bewegung auf, die Richtung ist aber offen. "
+                f"Beide Ausbruchsmarken im Blick behalten."
+            )
+        return f"{symbol}: Eine Bewegung steht bevor, und zwar {richtung}."
+
+    # Ruhige Lage – hier darf der Zeiger nicht als Handlungsaufforderung
+    # missverstanden werden.
+    if tension == "Es baut sich etwas auf":
+        if richtung:
+            return f"{symbol}: Der Markt wird ruhiger, der Trend zeigt {richtung}. Noch abwarten."
+        return f"{symbol}: Der Markt wird ruhiger. Noch nichts zu tun, aber im Auge behalten."
+
+    if richtung:
+        return f"{symbol}: Der Trend zeigt {richtung}, im Moment passiert aber wenig. Kein Grund zur Eile."
+    return f"{symbol}: Nichts Auffaelliges. Nur beobachten."
+
+
 def _bias(direction: float) -> str:
     if direction >= 20.0:
         return "long"
@@ -159,7 +254,7 @@ def evaluate(ctx: MarketContext) -> Setup:
     # ---- Zustand bestimmen ------------------------------------------------
     if sessions.is_weekend(ctx.now):
         state = STATE_CLOSED
-        notes.append("Devisenmarkt ist geschlossen – Werte stammen vom letzten Handelstag")
+        notes.append("Der Devisenmarkt ruht. Die Werte stammen vom letzten Handelstag.")
     else:
         breakout = _broke_out(ctx, high, low)
         moved, move_note = _already_moved(ctx)
@@ -170,15 +265,15 @@ def evaluate(ctx: MarketContext) -> Setup:
             if breakout:
                 bias = breakout
                 direction = 60.0 if breakout == "long" else -60.0
-                notes.append(f"Ausbruchsmarke {'oben' if breakout == 'long' else 'unten'} wurde genommen")
+                notes.append("Der Kurs hat die Marke " + ("nach oben" if breakout == "long" else "nach unten") + " durchbrochen.")
         elif moved:
             state = STATE_COOLDOWN
             notes.append(move_note)
-            notes.append("Fuer einen Neueinstieg auf einen Ruecksetzer warten")
+            notes.append("Fuer einen Einstieg auf einen Ruecksetzer warten.")
         elif readiness >= settings.arm_threshold:
             state = STATE_ARMED
             if bias == "neutral":
-                notes.append("Aufladung ohne klare Richtung – beide Ausbruchsmarken beobachten")
+                notes.append("Die Richtung ist noch offen. Beide Ausbruchsmarken beobachten.")
         else:
             state = STATE_WATCH
 
@@ -195,14 +290,18 @@ def evaluate(ctx: MarketContext) -> Setup:
     # ---- Regime -----------------------------------------------------------
     adx_now = ind.last_valid(f.adx) or 0.0
     if adx_now >= 25:
-        regime = "Trend"
+        regime = "Der Kurs laeuft in eine Richtung"
     elif adx_now >= 18:
-        regime = "beginnender Trend"
+        regime = "Eine Richtung bildet sich gerade"
     else:
-        regime = "Seitwaerts"
+        regime = "Der Kurs pendelt seitwaerts"
 
     if ctx.calendar_risk:
-        notes.append(f"Termin-Hinweis: {ctx.calendar_risk['advice']}")
+        notes.append(ctx.calendar_risk["advice"])
+
+    score = tacho_score(direction, confidence)
+    action = action_for(score)
+    tension = tension_for(state, readiness)
 
     last = f.series.candles[-1] if f.series.candles else None
     return Setup(
@@ -221,4 +320,8 @@ def evaluate(ctx: MarketContext) -> Setup:
         session=sessions.session_label(ctx.now),
         notes=notes,
         event_risk=ctx.calendar_risk,
+        score=score,
+        action=action,
+        tension=tension,
+        headline=headline_for(ctx.symbol, state, action, tension),
     )

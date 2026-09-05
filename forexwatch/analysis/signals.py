@@ -36,6 +36,28 @@ from .structure import divergence, inside_bars, key_levels, liquidity_sweep, nar
 
 # Gewichte der einzelnen Bausteine. Sie bestimmen, wie stark ein Merkmal in
 # das Gesamturteil eingeht, und sind bewusst an einer Stelle gebuendelt.
+# Klartext statt Kuerzeln in allen Anzeigetexten
+TIMEFRAME_NAMES: dict[str, str] = {
+    "1m": "Minutenchart",
+    "5m": "5-Minuten-Chart",
+    "15m": "15-Minuten-Chart",
+    "30m": "Halbstundenchart",
+    "1h": "Stundenchart",
+    "4h": "Vier-Stunden-Chart",
+    "1d": "Tageschart",
+    "1w": "Wochenchart",
+}
+
+MOMENT_NAMES: dict[str, str] = {
+    "Tokio-Open": "Tokio oeffnet",
+    "Frankfurt-Open": "Frankfurt oeffnet",
+    "London-Open": "London oeffnet",
+    "London-Fixing": "das Londoner Fixing",
+    "New-York-Open": "New York oeffnet",
+    "US-Datenfenster": "die US-Wirtschaftsdaten",
+    "London-Close": "London schliesst",
+}
+
 WEIGHTS: dict[str, float] = {
     "squeeze": 2.4,
     "volatility_low": 1.8,
@@ -101,6 +123,7 @@ def detect_squeeze(ctx: MarketContext) -> SignalHit | None:
     if length < 4:
         return None
     readiness = min(1.0, 0.35 + length / 24.0)
+    dauer = "seit kurzem" if length < 8 else "schon eine Weile" if length < 16 else "sehr lange"
 
     # Lage im Kanal gibt einen schwachen Richtungshinweis: notiert der Kurs
     # im oberen Drittel der Kompression, ist ein Ausbruch nach oben etwas
@@ -113,11 +136,12 @@ def detect_squeeze(ctx: MarketContext) -> SignalHit | None:
 
     return SignalHit(
         key="squeeze",
-        label="Volatilitaets-Kompression",
+        label="Markt zieht sich zusammen",
         readiness=readiness,
         direction=direction,
         weight=WEIGHTS["squeeze"],
-        detail=f"Squeeze seit {length} Kerzen – die Spanne ist ungewoehnlich eng",
+        detail=f"Die Kursspanne ist {dauer} ungewoehnlich eng. Solche Ruhephasen "
+               f"gehen groesseren Bewegungen meist voraus.",
         category="kompression",
     )
 
@@ -135,11 +159,11 @@ def detect_low_volatility(ctx: MarketContext) -> SignalHit | None:
     readiness = min(1.0, (30.0 - rank) / 30.0 * 0.9 + 0.25)
     return SignalHit(
         key="volatility_low",
-        label="Volatilitaet im Tief",
+        label="Ungewoehnlich ruhig",
         readiness=readiness,
         direction=0.0,
         weight=WEIGHTS["volatility_low"],
-        detail=f"ATR nur im {rank:.0f}. Perzentil – Ruhe geht Bewegung voraus",
+        detail="So wenig Bewegung wie selten. Erfahrungsgemaess folgt darauf ein Schub.",
         category="kompression",
     )
 
@@ -157,11 +181,12 @@ def detect_range_contraction(ctx: MarketContext) -> SignalHit | None:
     shrink = 1.0 - (recent / earlier)
     return SignalHit(
         key="range_contraction",
-        label="Spanne verengt sich",
+        label="Schwankungen werden kleiner",
         readiness=min(1.0, shrink * 2.0),
         direction=0.0,
         weight=WEIGHTS["range_contraction"],
-        detail=f"Bandbreite um {shrink * 100:.0f}% geschrumpft – der Markt zieht sich zusammen",
+        detail="Der Kurs pendelt in einem immer engeren Bereich – wie eine Feder, "
+               "die gespannt wird.",
         category="kompression",
     )
 
@@ -180,17 +205,17 @@ def detect_narrow_range(ctx: MarketContext) -> SignalHit | None:
     parts: list[str] = []
     if nr7:
         readiness += 0.45
-        parts.append("engste Kerze der letzten 7")
+        parts.append("die kleinste Kerze seit Tagen")
     if inside >= 2:
         readiness += min(0.45, 0.15 * inside)
-        parts.append(f"{inside} Inside Bars in Folge")
+        parts.append("mehrere Kerzen ohne neues Hoch oder Tief")
     return SignalHit(
         key="narrow_range",
-        label="Enge Kerzenformation",
+        label="Sehr enge Kerzen",
         readiness=min(1.0, readiness),
         direction=0.0,
         weight=WEIGHTS["narrow_range"],
-        detail=" / ".join(parts),
+        detail="Zuletzt " + " und ".join(parts) + ".",
         category="kompression",
     )
 
@@ -211,11 +236,12 @@ def detect_ema_coil(ctx: MarketContext) -> SignalHit | None:
     readiness = min(1.0, (1.6 - spread) / 1.6)
     return SignalHit(
         key="ema_coil",
-        label="Durchschnitte gebuendelt",
+        label="Trendlinien liegen aufeinander",
         readiness=readiness,
         direction=0.0,
         weight=WEIGHTS["ema_coil"],
-        detail=f"EMA20/50/200 liegen innerhalb von {spread:.2f} ATR – Richtungsentscheidung steht an",
+        detail="Kaeufer und Verkaeufer halten sich die Waage. Aus dieser Lage "
+               "loest sich meist ein klarer Trend.",
         category="kompression",
     )
 
@@ -231,11 +257,11 @@ def detect_squeeze_release(ctx: MarketContext) -> SignalHit | None:
         direction = 0.8 if hist > 0 else -0.8
     return SignalHit(
         key="squeeze_release",
-        label="Kompression loest sich auf",
+        label="Die Bewegung beginnt",
         readiness=0.9,
         direction=direction,
         weight=WEIGHTS["squeeze_release"],
-        detail="Die Baender oeffnen sich – der Ausbruch laeuft an",
+        detail="Die Ruhephase ist vorbei, der Kurs zieht gerade an.",
         category="ausloesung",
     )
 
@@ -266,7 +292,7 @@ def detect_trend_alignment(ctx: MarketContext) -> SignalHit | None:
         elif f.price < e50:
             vote = -0.4
         votes.append(vote)
-        labels.append(f"{f.series.timeframe}:{'auf' if vote > 0 else 'ab' if vote < 0 else 'neutral'}")
+        labels.append(TIMEFRAME_NAMES.get(f.series.timeframe, f.series.timeframe))
     if not votes:
         return None
 
@@ -276,11 +302,13 @@ def detect_trend_alignment(ctx: MarketContext) -> SignalHit | None:
         return None
     return SignalHit(
         key="trend_alignment",
-        label="Zeitebenen im Gleichklang",
+        label="Alle Zeitfenster zeigen " + ("nach oben" if direction > 0 else "nach unten"),
         readiness=min(1.0, agreement * 0.7),
         direction=max(-1.0, min(1.0, direction)),
         weight=WEIGHTS["trend_alignment"],
-        detail="Uebergeordnet " + ", ".join(labels),
+        detail=("Stunden-, Vier-Stunden- und Tageschart zeigen in dieselbe Richtung."
+                if len(labels) >= 3 else
+                "Auch " + " und ".join(labels) + " zeigen in diese Richtung."),
         category="richtung",
     )
 
@@ -294,11 +322,13 @@ def detect_structure(ctx: MarketContext) -> SignalHit | None:
         return None
     return SignalHit(
         key="structure",
-        label="Marktstruktur",
+        label="Der Kursverlauf " + ("steigt" if direction > 0 else "faellt"),
         readiness=0.25,
         direction=direction,
         weight=WEIGHTS["structure"],
-        detail=f"Struktur {f.structure}: {'hoehere Hochs und Tiefs' if direction > 0 else 'tiefere Hochs und Tiefs'}",
+        detail=("Jedes Hoch und jedes Tief liegt hoeher als das davor."
+                if direction > 0 else
+                "Jedes Hoch und jedes Tief liegt tiefer als das davor."),
         category="richtung",
     )
 
@@ -313,7 +343,7 @@ def detect_divergence(ctx: MarketContext) -> SignalHit | None:
     strength = float(result["strength"])
     return SignalHit(
         key="divergence",
-        label="Momentum-Divergenz",
+        label="Der Schwung laesst nach",
         readiness=min(1.0, 0.4 + strength * 0.5),
         direction=direction * min(1.0, 0.55 + strength * 0.45),
         weight=WEIGHTS["divergence"],
@@ -331,11 +361,11 @@ def detect_liquidity_sweep(ctx: MarketContext) -> SignalHit | None:
     direction = 1.0 if result["direction"] == "long" else -1.0
     return SignalHit(
         key="liquidity_sweep",
-        label="Liquiditaets-Abgriff",
+        label="Fehlausbruch",
         readiness=0.6,
         direction=direction * 0.8,
         weight=WEIGHTS["liquidity_sweep"],
-        detail=f"{result['text']} (Docht {result['wick_ratio'] * 100:.0f}% der Kerze)",
+        detail=result["text"],
         category="richtung",
     )
 
@@ -355,11 +385,11 @@ def detect_adx_building(ctx: MarketContext) -> SignalHit | None:
         direction = 0.6 if pdi > mdi else -0.6
     return SignalHit(
         key="adx_building",
-        label="Trendstaerke waechst",
+        label="Der Trend gewinnt an Kraft",
         readiness=min(1.0, (current - past) / 12.0 + 0.3),
         direction=direction,
         weight=WEIGHTS["adx_building"],
-        detail=f"ADX steigt von {past:.0f} auf {current:.0f} – ein Trend beginnt sich zu bilden",
+        detail="Die Bewegung wird zielstrebiger statt hin und her.",
         category="richtung",
     )
 
@@ -397,14 +427,13 @@ def detect_level_proximity(ctx: MarketContext) -> SignalHit | None:
     direction = -0.4 if nearest["kind"] == "widerstand" else 0.4
     return SignalHit(
         key="level_proximity",
-        label="Wichtige Zone in Reichweite",
+        label="Wichtige Marke voraus",
         readiness=min(1.0, 0.35 + closeness * 0.5),
         direction=direction,
         weight=WEIGHTS["level_proximity"],
         detail=(
-            f"{nearest['kind'].capitalize()} bei {nearest['price']:.5f} aus dem "
-            f"{source.series.timeframe}-Chart ({nearest['touches']} Beruehrungen, "
-            f"{distance / f.atr_now:.1f} ATR entfernt)"
+            f"Bei {nearest['price']:.5f} hat der Kurs schon mehrfach gedreht. "
+            f"Dort faellt die naechste Entscheidung."
         ),
         category="struktur",
     )
@@ -438,13 +467,13 @@ def detect_asian_range(ctx: MarketContext) -> SignalHit | None:
 
     return SignalHit(
         key="asian_range",
-        label="Enge Asien-Spanne",
+        label="Ruhige Nacht vor London",
         readiness=readiness,
         direction=0.0,
         weight=WEIGHTS["asian_range"],
         detail=(
-            f"Nachtspanne {result['high']:.5f} / {result['low']:.5f} – nur "
-            f"{ratio * 100:.0f}% einer normalen Tagesspanne"
+            "Ueber Nacht kaum Bewegung. Zur Londoner Eroeffnung bricht der Kurs "
+            "aus so einer Spanne besonders oft heraus."
         ),
         category="timing",
     )
@@ -462,7 +491,7 @@ def detect_session_timing(ctx: MarketContext) -> SignalHit | None:
     parts: list[str] = []
     if minutes <= 60:
         readiness += 0.35 + (60 - minutes) / 60.0 * 0.3
-        parts.append(f"{name} in {minutes} Min.")
+        parts.append(f"{MOMENT_NAMES.get(name, name)} in {minutes} Minuten")
     if factor >= 1.3:
         readiness += 0.3
         parts.append(sessions.session_label(ctx.now))
@@ -470,11 +499,11 @@ def detect_session_timing(ctx: MarketContext) -> SignalHit | None:
         return None
     return SignalHit(
         key="session_timing",
-        label="Aktives Zeitfenster",
+        label="Gleich wird es lebhaft",
         readiness=min(1.0, readiness),
         direction=0.0,
         weight=WEIGHTS["session_timing"],
-        detail=" | ".join(parts),
+        detail=". ".join(parts) + ".",
         category="timing",
     )
 
@@ -495,11 +524,12 @@ def detect_calendar_pressure(ctx: MarketContext) -> SignalHit | None:
     readiness = min(1.0, 0.4 + (240 - minutes) / 240.0 * 0.5)
     return SignalHit(
         key="calendar_pressure",
-        label="Termin steht bevor",
+        label="Wichtige Nachricht steht an",
         readiness=readiness,
         direction=0.0,
         weight=WEIGHTS["calendar_pressure"],
-        detail=f"{risk['title']} ({risk['currency']}) in {minutes} Min.",
+        detail=f"{risk['title']} ({risk['currency']}) in {minutes} Minuten. "
+               f"Solche Termine bewegen den Kurs oft schlagartig.",
         category="timing",
     )
 
@@ -539,13 +569,13 @@ def detect_correlation_gap(ctx: MarketContext) -> SignalHit | None:
     direction = max(-1.0, min(1.0, gap / 0.4))
     return SignalHit(
         key="correlation_gap",
-        label="Korrelations-Luecke",
+        label="Aehnliches Paar ist vorausgelaufen",
         readiness=min(1.0, 0.3 + abs(gap) / 0.6),
         direction=direction * 0.7,
         weight=WEIGHTS["correlation_gap"],
         detail=(
-            f"{name} ist {gap:+.2f}% vorausgelaufen (Korrelation {correlation:+.2f}) – "
-            f"{ctx.symbol} hinkt hinterher"
+            f"{name} hat sich schon bewegt, {ctx.symbol} noch nicht. "
+            f"Solche Unterschiede gleichen sich meist wieder an."
         ),
         category="richtung",
     )

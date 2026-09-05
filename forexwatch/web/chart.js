@@ -4,19 +4,19 @@
   "use strict";
 
   const COLORS = {
-    up: "#26c281",
-    down: "#ef5b5b",
-    grid: "#1e2937",
-    axis: "#64748b",
-    ema20: "#4da3ff",
-    ema50: "#f0a92e",
-    band: "rgba(77,163,255,.28)",
-    kc: "rgba(132,148,168,.22)",
+    up: "#22c176",
+    down: "#ef4d4d",
+    grid: "#223040",
+    axis: "#7b8da2",
+    ema20: "#f0a92e",
+    ema50: "#7aa7d6",
+    band: "rgba(122,167,214,.25)",
+    kc: "rgba(123,141,162,.2)",
     squeeze: "rgba(240,169,46,.13)",
-    entry: "#4da3ff",
-    stop: "#ef5b5b",
-    target: "#26c281",
-    text: "#8494a8",
+    entry: "#22c176",
+    stop: "#ef4d4d",
+    target: "#22c176",
+    text: "#a6b6c8",
   };
 
   function niceStep(range, targetLines) {
@@ -141,10 +141,10 @@
     // Handelsniveaus als gestrichelte Linien
     if (data.levels) {
       const marks = [
-        ["trigger_long", COLORS.target, "Ausbruch oben"],
-        ["trigger_short", COLORS.stop, "Ausbruch unten"],
-        ["stop", COLORS.stop, "Stop"],
-        ["take_profit_1", COLORS.target, "Ziel"],
+        ["trigger_long", COLORS.target, "Kaufen ab hier"],
+        ["trigger_short", COLORS.stop, "Verkaufen ab hier"],
+        ["stop", COLORS.stop, "Notausstieg"],
+        ["take_profit_1", COLORS.target, "Gewinn mitnehmen"],
       ];
       // Mehrere Niveaus fallen oft auf denselben Kurs (etwa Stop und
       // Ausbruchsmarke bei einem Short). Sie werden zu einer Linie mit
