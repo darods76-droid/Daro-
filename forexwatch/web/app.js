@@ -20,9 +20,19 @@
   function clock(ts) {
     return new Date(ts * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
   }
+  // Alle Uhrzeiten in der Zeitzone des Rechners. Intern rechnet das System
+  // in UTC, weil der Devisenmarkt danach getaktet ist – auf dem Bildschirm
+  // soll aber die eigene Uhr stehen.
   function evTime(iso) {
     return new Date(iso).toLocaleString("de-DE",
       { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+  function zoneName() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "lokale Zeit";
+    } catch (e) {
+      return "lokale Zeit";
+    }
   }
   function de(n, d) {
     return Number(n).toLocaleString("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -65,7 +75,8 @@
       '<span>' + esc(s.session || "") + '</span>' +
       '<span>Unter Spannung <b>' + loud + '</b></span>' +
       '<span>Kurse von <b>' + esc(s.provider === "capital" ? "Capital.com" : s.provider) + '</b></span>' +
-      '<span>Zuletzt gepr&uuml;ft <b>' + (s.last_scan ? clock(s.last_scan) : "–") + '</b></span>';
+      '<span>Zuletzt gepr&uuml;ft <b>' + (s.last_scan ? clock(s.last_scan) : "–") + '</b></span>' +
+      '<span title="Alle Uhrzeiten in deiner Zeitzone">Zeiten in <b>' + esc(zoneName()) + '</b></span>';
   }
 
   // ---------------------------------------------------------- Wachliste
