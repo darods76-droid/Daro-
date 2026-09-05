@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ForexWatch – Fruehwarnsystem Devisenmarkt</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>📡</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="dot" id="conn-dot"></span>
+    <strong>ForexWatch</strong>
+    <span class="sub">Fruehwarnsystem Devisenmarkt</span>
+  </div>
+  <div class="status" id="statusbar"></div>
+  <div class="actions">
+    <button id="btn-scan" class="btn">Jetzt scannen</button>
+    <button id="btn-help" class="btn ghost">Was bedeutet das?</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- Wachliste -->
+  <aside class="panel watchlist">
+    <div class="panel-head">
+      <h2>Wachliste</h2>
+      <select id="filter-state" class="select">
+        <option value="">alle Zustaende</option>
+        <option value="TRIGGERED">nur Ausbruch</option>
+        <option value="ARMED">nur scharf</option>
+        <option value="WATCH">nur beobachten</option>
+      </select>
+    </div>
+    <ul id="pairs" class="pairs"></ul>
+    <p class="hint">Sortiert nach Dringlichkeit: Ausbruch, dann Aufladung.</p>
+  </aside>
+
+  <!-- Hauptbereich -->
+  <section class="main">
+
+    <div class="panel detail" id="detail">
+      <div class="panel-head">
+        <div>
+          <h2 id="d-symbol">–</h2>
+          <div class="muted" id="d-sub"></div>
+        </div>
+        <div class="tf-switch" id="tf-switch"></div>
+      </div>
+
+      <div class="gauges" id="gauges"></div>
+
+      <div class="chart-wrap">
+        <canvas id="chart" height="340"></canvas>
+        <canvas id="chart-rsi" height="90"></canvas>
+        <div class="chart-legend" id="chart-legend"></div>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="panel">
+        <div class="panel-head"><h2>Warum jetzt?</h2></div>
+        <ul id="hits" class="hits"></ul>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Handelsplan</h2></div>
+        <div id="plan"></div>
+        <div class="calc">
+          <h3>Positionsgroesse</h3>
+          <div class="calc-row">
+            <label>Kontostand <input type="number" id="c-balance" value="10000" step="100"></label>
+            <label>Waehrung <input type="text" id="c-currency" value="EUR" maxlength="3"></label>
+            <label>Risiko % <input type="number" id="c-risk" value="1" step="0.1" min="0.1" max="10"></label>
+          </div>
+          <div id="calc-out" class="calc-out"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Termine</h2>
+          <span class="muted" id="cal-source"></span>
+        </div>
+        <ul id="calendar" class="events"></ul>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Alarme</h2>
+          <span class="muted" id="alert-count"></span>
+        </div>
+        <ul id="alerts" class="alerts"></ul>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Historische Pruefung</h2>
+        <button id="btn-backtest" class="btn small">Fuer dieses Paar pruefen</button>
+      </div>
+      <div id="backtest" class="backtest">
+        <p class="muted">Prueft die identische Signallogik ueber die Kurshistorie und vergleicht sie
+        mit vergleichbar ruhigen Marktphasen. Ohne diesen Vergleich sagt eine Trefferquote nichts aus.</p>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<!-- Erklaerung -->
+<div class="modal" id="help" hidden>
+  <div class="modal-box">
+    <button class="modal-close" id="help-close">×</button>
+    <h2>Wie dieses System arbeitet</h2>
+
+    <p><strong>Der Zeitpunkt einer Kursbewegung laesst sich nicht vorhersagen.</strong>
+    Was sich sehr wohl erkennen laesst, ist der Zustand <em>davor</em>. Vor fast jeder
+    groesseren Bewegung zieht sich der Markt zusammen: die Schwankungsbreite faellt,
+    die Baender verengen sich, die Durchschnitte buendeln sich. Diese Aufladung misst
+    das System.</p>
+
+    <h3>Die vier Zustaende</h3>
+    <ul class="legend-list">
+      <li><span class="badge watch">WATCH</span> Nichts zu tun. Nur beobachten.</li>
+      <li><span class="badge armed">ARMED</span> Der Markt ist aufgeladen, ein Ausbruch steht bevor.
+          <strong>Das ist der Vorlauf, um den es geht.</strong></li>
+      <li><span class="badge triggered">TRIGGERED</span> Die Ausbruchsmarke wurde genommen, die Bewegung laeuft an.</li>
+      <li><span class="badge cooldown">COOLDOWN</span> Bewegung ist bereits gelaufen – ein Einstieg waere zu spaet.</li>
+    </ul>
+
+    <h3>Die drei Kennzahlen</h3>
+    <ul class="legend-list">
+      <li><strong>Bereitschaft</strong> (0–100): Wie stark ist der Markt aufgeladen?</li>
+      <li><strong>Richtung</strong> (−100…+100): Wohin zeigen die Hinweise?</li>
+      <li><strong>Vertrauen</strong> (0–100): Wie einig sind sich die Einzelsignale?</li>
+    </ul>
+
+    <h3>Was die Pruefung zeigt</h3>
+    <p>Geprueft ueber 8 Waehrungspaare, 2 Jahre Stundendaten, 1.612 erkannte Setups
+    und 947 durchgespielte Handel:</p>
+
+    <ul class="legend-list">
+      <li><strong>Der Zeitpunkt stimmt.</strong> Nach einem ARMED-Signal dehnte sich die
+        Spanne in <strong>49 %</strong> der Faelle deutlich aus – in vergleichbar ruhigen
+        Marktphasen nur in <strong>22,6 %</strong>. Das sind <strong>+26 Prozentpunkte</strong>,
+        und der Vorsprung gilt fuer jedes einzelne der acht Paare.</li>
+      <li><strong>Die Richtung stimmt nicht.</strong> 53,8 % Treffer gegenueber 51,3 %
+        Zufallsniveau – das sind 2,5 Prozentpunkte und damit nicht belastbar. Bei
+        AUDUSD und NZDUSD lag die Quote sogar unter dem Zufall.</li>
+      <li><strong>Blind gehandelt verliert die Regel Geld.</strong> Mit realistischen
+        Spreads ergab der eingebaute Handelsplan <strong>−0,020 R</strong> je Handel
+        (Profitfaktor 0,97). Nur EURUSD und GBPUSD blieben positiv.</li>
+    </ul>
+
+    <p>Nutze die Anzeige deshalb als <strong>Aufmerksamkeitssteuerung, nicht als
+    Signalgeber</strong>. Sie sagt dir zuverlaessig, wo und wann es interessant wird.
+    Die Richtungsentscheidung triffst du selbst – aus Nachrichtenlage, uebergeordnetem
+    Chartbild und deinem eigenen Ansatz.</p>
+
+    <p>Die Zahlen kannst du jederzeit selbst nachrechnen: unten im Bereich
+    „Historische Pruefung" oder mit <code>python run.py --backtest EURUSD</code>.</p>
+
+    <p class="warn">Dieses Programm ist ein Analysewerkzeug, keine Anlageberatung.
+    Devisenhandel mit Hebel kann zum Totalverlust fuehren.</p>
+  </div>
+</div>
+
+<script src="/static/chart.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
