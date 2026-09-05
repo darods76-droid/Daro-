@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="297mm" height="210mm" viewBox="0 0 297 210">
+<title>Winkelblech</title>
+<rect x="0" y="0" width="297" height="210" fill="#ffffff"/>
+<polygon points="0,210 297,210 297,0 0,0" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<polygon points="20,200 287,200 287,10 20,10" stroke="#111111" stroke-width="0.7" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<polygon points="107,200 287,200 287,137 107,137" stroke="#111111" stroke-width="0.7" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<polygon points="107,147.5 217,147.5 217,137 107,137" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="108.2" y="139.8" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Firma / Verantwortliche Abteilung</text>
+<text x="162" y="145.9" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">DARO Konstruktion</text>
+<polygon points="107,158 162,158 162,147.5 107,147.5" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="108.2" y="150.3" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Erstellt durch</text>
+<text x="134.5" y="156.4" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">D. Rodriguez</text>
+<polygon points="162,158 217,158 217,147.5 162,147.5" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="163.2" y="150.3" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Datum</text>
+<text x="189.5" y="156.4" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">05.09.2026</text>
+<polygon points="107,168.5 162,168.5 162,158 107,158" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="108.2" y="160.8" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Geprüft durch</text>
+<polygon points="162,168.5 217,168.5 217,158 162,158" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="163.2" y="160.8" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Dokumentenart</text>
+<text x="189.5" y="166.9" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">Technische Zeichnung</text>
+<polygon points="107,179 217,179 217,168.5 107,168.5" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="108.2" y="171.3" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Werkstoff / Halbzeug</text>
+<text x="162" y="177.4" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">AlMg3</text>
+<polygon points="107,189.5 162,189.5 162,179 107,179" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="108.2" y="181.8" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Allgemeintoleranz</text>
+<text x="134.5" y="187.9" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">ISO 2768-m</text>
+<polygon points="162,189.5 217,189.5 217,179 162,179" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="163.2" y="181.8" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Oberfläche</text>
+<polygon points="107,200 144,200 144,189.5 107,189.5" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="108.2" y="192.3" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Maßstab</text>
+<text x="125.5" y="198.4" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">1:1</text>
+<polygon points="144,200 181,200 181,189.5 144,189.5" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="145.2" y="192.3" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Gewicht</text>
+<text x="162.5" y="198.4" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">0,21 kg</text>
+<polygon points="181,200 217,200 217,189.5 181,189.5" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="182.2" y="192.3" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Einheit</text>
+<text x="199" y="198.4" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">mm</text>
+<polygon points="217,158 287,158 287,137 217,137" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="218.2" y="139.8" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Benennung</text>
+<text x="252" y="150.5" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="6" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">Winkelblech</text>
+<polygon points="217,179 287,179 287,158 217,158" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="218.2" y="160.8" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Zeichnungsnummer</text>
+<text x="252" y="172" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="7" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">DC-1002</text>
+<polygon points="217,189.5 252,189.5 252,179 217,179" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="218.2" y="181.8" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Projektion</text>
+<polygon points="252,189.5 287,189.5 287,179 252,179" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="253.2" y="181.8" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Format</text>
+<text x="269.5" y="187.9" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">A4L</text>
+<polygon points="217,200 252,200 252,189.5 217,189.5" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="218.2" y="192.3" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Revision</text>
+<text x="234.5" y="198.4" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">0</text>
+<polygon points="252,200 287,200 287,189.5 252,189.5" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="253.2" y="192.3" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="2" fill="#555555" text-anchor="start" dominant-baseline="alphabetic">Blatt</text>
+<text x="269.5" y="198.4" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="4" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">1 / 1</text>
+<circle cx="239" cy="185.25" r="2.7" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<circle cx="239" cy="185.25" r="1.68" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<polygon points="227.6,186.93 227.6,183.57 232.4,182.55 232.4,187.95" stroke="#111111" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="228.8" y1="185.25" x2="240.2" y2="185.25" stroke="#111111" stroke-width="0.15" fill="none" stroke-linecap="butt" stroke-linejoin="round" stroke-dasharray="12 2 2 2"/>
+<line x1="80" y1="100" x2="160" y2="100" stroke="#111111" stroke-width="0.5" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="160" y1="100" x2="160" y2="92" stroke="#111111" stroke-width="0.5" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="160" y1="92" x2="96" y2="92" stroke="#111111" stroke-width="0.5" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<path d="M 88 84 A 8 8 0 0 1 96 92" stroke="#111111" stroke-width="0.5" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="88" y1="84" x2="88" y2="40" stroke="#111111" stroke-width="0.5" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="88" y1="40" x2="80" y2="40" stroke="#111111" stroke-width="0.5" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="40" x2="80" y2="100" stroke="#111111" stroke-width="0.5" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="157.8823" y1="100" x2="160" y2="97.8823" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="153.6396" y1="100" x2="160" y2="93.6396" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="149.397" y1="100" x2="157.397" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="145.1543" y1="100" x2="153.1543" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="140.9117" y1="100" x2="148.9117" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="136.669" y1="100" x2="144.669" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="132.4264" y1="100" x2="140.4264" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="128.1838" y1="100" x2="136.1838" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="123.9411" y1="100" x2="131.9411" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="119.6985" y1="100" x2="127.6985" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="115.4558" y1="100" x2="123.4558" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="111.2132" y1="100" x2="119.2132" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="106.9706" y1="100" x2="114.9706" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="102.7279" y1="100" x2="110.7279" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="98.4853" y1="100" x2="106.4853" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="94.2426" y1="100" x2="102.2426" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="90" y1="100" x2="98" y2="92" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="85.7574" y1="100" x2="94.034" y2="91.7233" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="81.5147" y1="100" x2="91.1751" y2="90.3396" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="97.2721" x2="89.1669" y2="88.1052" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="93.0294" x2="88.0923" y2="84.9371" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="88.7868" x2="88" y2="80.7868" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="84.5442" x2="88" y2="76.5442" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="80.3015" x2="88" y2="72.3015" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="76.0589" x2="88" y2="68.0589" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="71.8162" x2="88" y2="63.8162" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="67.5736" x2="88" y2="59.5736" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="63.331" x2="88" y2="55.331" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="59.0883" x2="88" y2="51.0883" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="54.8457" x2="88" y2="46.8457" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="50.603" x2="88" y2="42.603" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="46.3604" x2="86.3604" y2="40" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="42.1177" x2="82.1177" y2="40" stroke="#4a7f4a" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<circle cx="140" cy="96" r="3.5" stroke="#111111" stroke-width="0.5" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="132.5" y1="96" x2="147.5" y2="96" stroke="#b03060" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round" stroke-dasharray="12 2 2 2"/>
+<line x1="140" y1="103.5" x2="140" y2="88.5" stroke="#b03060" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round" stroke-dasharray="12 2 2 2"/>
+<line x1="80" y1="100.8" x2="80" y2="122" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="160" y1="100.8" x2="160" y2="122" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="120" x2="160" y2="120" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<polygon points="80,120 83.5,118.8 83.5,121.2" fill="#1c6ea4" stroke="none"/>
+<polygon points="160,120 156.5,121.2 156.5,118.8" fill="#1c6ea4" stroke="none"/>
+<text x="120" y="119" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="3.5" fill="#1c6ea4" text-anchor="middle" dominant-baseline="alphabetic">80</text>
+<line x1="79.2" y1="100" x2="58" y2="100" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="79.2" y1="40" x2="58" y2="40" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="60" y1="100" x2="60" y2="40" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<polygon points="60,100 58.8,96.5 61.2,96.5" fill="#1c6ea4" stroke="none"/>
+<polygon points="60,40 61.2,43.5 58.8,43.5" fill="#1c6ea4" stroke="none"/>
+<text x="59" y="70" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="3.5" fill="#1c6ea4" text-anchor="middle" dominant-baseline="alphabetic" transform="rotate(-90 59 70)">60</text>
+<line x1="160.8" y1="100" x2="180" y2="100" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="160.8" y1="92" x2="180" y2="92" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="178" y1="107" x2="178" y2="85" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<polygon points="178,100 179.2,103.5 176.8,103.5" fill="#1c6ea4" stroke="none"/>
+<polygon points="178,92 176.8,88.5 179.2,88.5" fill="#1c6ea4" stroke="none"/>
+<text x="177" y="85.5" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="3.5" fill="#1c6ea4" text-anchor="middle" dominant-baseline="alphabetic" transform="rotate(-90 177 85.5)">8</text>
+<polygon points="140,92.5 138.8,89 141.2,89" fill="#1c6ea4" stroke="none"/>
+<line x1="140" y1="92.5" x2="162" y2="66" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="162" y1="66" x2="167.25" y2="66" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="168.25" y="65" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="3.5" fill="#1c6ea4" text-anchor="start" dominant-baseline="alphabetic">Ø7</text>
+<line x1="96" y1="84" x2="90.344" y2="89.656" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<polygon points="90.344,89.656 91.9703,86.3326 93.6674,88.0297" fill="#1c6ea4" stroke="none"/>
+<line x1="90.344" y1="89.656" x2="126" y2="60" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="126" y1="60" x2="131.25" y2="60" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<text x="132.25" y="59" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="3.5" fill="#1c6ea4" text-anchor="start" dominant-baseline="alphabetic">R8</text>
+<line x1="101.2132" y1="100" x2="106" y2="100" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<line x1="80" y1="78.7868" x2="80" y2="74" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<path d="M 101.2132 100 A 21.2132 21.2132 0 0 1 80 78.7868" stroke="#1c6ea4" stroke-width="0.25" fill="none" stroke-linecap="butt" stroke-linejoin="round"/>
+<polygon points="101.2132,100 100.0132,96.5 102.4132,96.5" fill="#1c6ea4" stroke="none"/>
+<polygon points="80,78.7868 83.5,77.5868 83.5,79.9868" fill="#1c6ea4" stroke="none"/>
+<text x="96.4496" y="83.5504" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="3.5" fill="#1c6ea4" text-anchor="middle" dominant-baseline="alphabetic">90°</text>
+<text x="120" y="28" font-family="ISOCPEUR, 'Arial Narrow', Helvetica, Arial, sans-serif" font-size="5" fill="#111111" text-anchor="middle" dominant-baseline="alphabetic">SCHNITT A-A</text>
+</svg>

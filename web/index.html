@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DARO-CAD – Technische Zeichnungen</title>
+<link rel="stylesheet" href="css/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230f172a'/><path d='M7 24 L16 8 L25 24' stroke='%2338bdf8' stroke-width='2.5' fill='none'/><path d='M11 19h10' stroke='%23f59e0b' stroke-width='2'/></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="mark">◺</span> DARO&#8209;CAD</div>
+
+  <div class="menu">
+    <button class="btn" id="btnNew" title="Neue Zeichnung (Strg+N)">Neu</button>
+    <button class="btn" id="btnOpen" title="Zeichnung öffnen">Öffnen</button>
+    <button class="btn" id="btnSave" title="Speichern (Strg+S)">Speichern</button>
+    <span class="sep"></span>
+    <button class="btn" id="btnImport" title="DXF, FCStd oder STEP einlesen">Import</button>
+    <div class="dropdown">
+      <button class="btn primary" id="btnExport">Export ▾</button>
+      <div class="dropdown-menu" id="exportMenu">
+        <button data-format="pdf">PDF – druckfertig</button>
+        <button data-format="svg">SVG – Vektorgrafik</button>
+        <button data-format="dxf">DXF – für CAD-Programme</button>
+        <button data-format="json">DARO-CAD-Datei</button>
+        <hr>
+        <button data-format="fcstd" data-freecad="1">FreeCAD (.FCStd)</button>
+        <button data-format="step" data-freecad="1">STEP (.step)</button>
+        <button data-format="stl" data-freecad="1">STL – 3D-Druck</button>
+      </div>
+    </div>
+    <span class="sep"></span>
+    <button class="btn" id="btnUndo" title="Rückgängig (Strg+Z)">↶</button>
+    <button class="btn" id="btnRedo" title="Wiederholen (Strg+Y)">↷</button>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="freecad-badge" id="freecadBadge" title="Status der FreeCAD-Kopplung">FreeCAD: …</div>
+</header>
+
+<main class="layout">
+
+  <nav class="tools" id="tools" aria-label="Werkzeuge"></nav>
+
+  <section class="stage">
+    <canvas id="canvas" tabindex="0"></canvas>
+
+    <div class="viewbar">
+      <button class="chip" id="btnZoomExtents" title="Alles zeigen (Doppelklick Mitte)">Alles</button>
+      <button class="chip" id="btnZoomSheet" title="Blatt zeigen">Blatt</button>
+      <button class="chip" id="btnZoomIn">+</button>
+      <button class="chip" id="btnZoomOut">−</button>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+  </section>
+
+  <aside class="panel">
+    <div class="tabs" id="tabs">
+      <button data-tab="layers" class="active">Layer</button>
+      <button data-tab="props">Eigenschaften</button>
+      <button data-tab="title">Schriftfeld</button>
+      <button data-tab="model">3D &amp; Ansichten</button>
+    </div>
+
+    <div class="tab-body">
+      <section data-panel="layers" class="active">
+        <div class="field-row">
+          <label for="activeLayer">Aktiver Layer</label>
+          <select id="activeLayer"></select>
+        </div>
+        <div class="layer-list" id="layerList"></div>
+        <div class="field-row">
+          <input type="text" id="newLayerName" placeholder="Neuer Layer">
+          <button class="btn small" id="btnAddLayer">Anlegen</button>
+        </div>
+        <h4>Zeicheneinstellungen</h4>
+        <div class="grid2">
+          <label>Textgröße
+            <input type="number" id="optTextHeight" value="3.5" step="0.5" min="1"></label>
+          <label>Nachkommastellen
+            <input type="number" id="optDecimals" value="1" min="0" max="3"></label>
+          <label>Versatz-Abstand
+            <input type="number" id="optOffset" value="5" step="1" min="0.01"></label>
+          <label>Rundungsradius
+            <input type="number" id="optFillet" value="5" step="1" min="0"></label>
+          <label>Fasenbreite
+            <input type="number" id="optChamfer" value="2" step="0.5" min="0.1"></label>
+          <label>Rasterweite
+            <input type="number" id="optGrid" value="10" step="1" min="0.1"></label>
+          <label>Schraffurwinkel
+            <input type="number" id="optHatchAngle" value="45" step="15"></label>
+          <label>Schraffurabstand
+            <input type="number" id="optHatchSpacing" value="3" step="0.5" min="0.2"></label>
+        </div>
+      </section>
+
+      <section data-panel="props">
+        <div id="propsBody" class="props-body">
+          <p class="muted">Kein Element ausgewählt.</p>
+        </div>
+      </section>
+
+      <section data-panel="title">
+        <div class="grid1" id="metaForm">
+          <label>Benennung <input data-meta="title"></label>
+          <label>Zeichnungsnummer <input data-meta="drawingNumber"></label>
+          <label>Werkstoff <input data-meta="material"></label>
+          <label>Firma / Abteilung <input data-meta="company"></label>
+          <label>Erstellt durch <input data-meta="author"></label>
+          <label>Datum <input data-meta="date" placeholder="TT.MM.JJJJ"></label>
+          <label>Geprüft durch <input data-meta="approvedBy"></label>
+          <label>Allgemeintoleranz <input data-meta="generalTolerance"></label>
+          <label>Oberfläche <input data-meta="surface"></label>
+          <label>Gewicht <input data-meta="weight"></label>
+          <label>Revision <input data-meta="revision"></label>
+          <div class="grid2">
+            <label>Blattformat <select data-meta="sheet" id="metaSheet"></select></label>
+            <label>Maßstab <select data-meta="scale" id="metaScale"></select></label>
+          </div>
+          <label>Projektionsmethode
+            <select data-meta="projection">
+              <option value="first">Methode 1 – Europa (DIN)</option>
+              <option value="third">Methode 3 – USA</option>
+            </select></label>
+          <label class="check"><input type="checkbox" data-meta="decimalComma" checked>
+            Komma als Dezimaltrennzeichen (DIN)</label>
+        </div>
+      </section>
+
+      <section data-panel="model">
+        <canvas id="view3d" class="view3d"></canvas>
+        <div class="grid2">
+          <label>Höhe (mm) <input type="number" id="extrudeHeight" value="10" step="1"></label>
+          <label>Dichte (kg/dm³) <input type="number" id="density" value="7.85" step="0.05"></label>
+        </div>
+        <button class="btn wide" id="btnExtrude">Auswahl extrudieren</button>
+        <div class="stats" id="solidStats">Noch kein Körper erzeugt.</div>
+        <h4>Ansichten ableiten</h4>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="viewFront" checked> Vorderansicht</label>
+          <label class="check"><input type="checkbox" id="viewTop" checked> Draufsicht</label>
+          <label class="check"><input type="checkbox" id="viewLeft" checked> Seitenansicht</label>
+          <label class="check"><input type="checkbox" id="viewLabels" checked> Beschriftung</label>
+        </div>
+        <div class="grid2">
+          <label>Abstand (mm) <input type="number" id="viewGap" value="25" step="5"></label>
+          <label>Ablage bei X/Y <input type="text" id="viewOrigin" value="140, 160"></label>
+        </div>
+        <button class="btn wide" id="btnViews">Ansichten in die Zeichnung legen</button>
+        <p class="muted small">Verdeckte Kanten werden berechnet und auf den Layer
+          „Verdeckt“ gelegt (strichliert nach DIN ISO 128-24).</p>
+      </section>
+    </div>
+  </aside>
+</main>
+
+<footer class="statusbar">
+  <label class="cmdline">
+    <span class="prompt" id="prompt">Befehl</span>
+    <input id="cmd" type="text" autocomplete="off" spellcheck="false"
+           placeholder="Befehl oder Koordinate:  100,50   @50,0   @100&lt;45   (F1 = Hilfe)">
+  </label>
+  <div class="toggles">
+    <button class="tgl active" id="tglSnap" title="Objektfang (F3)">Fang</button>
+    <button class="tgl" id="tglOrtho" title="Orthogonal (F8)">Ortho</button>
+    <button class="tgl" id="tglPolar" title="Polarwinkel 45° (F10)">Polar</button>
+    <button class="tgl active" id="tglGrid" title="Raster (F7)">Raster</button>
+    <button class="tgl active" id="tglLw" title="Linienstärken anzeigen">Stärke</button>
+  </div>
+  <div class="readout"><span id="coords">0.00, 0.00</span> mm</div>
+</footer>
+
+<dialog id="openDialog">
+  <h3>Zeichnung öffnen</h3>
+  <div id="fileList" class="file-list"></div>
+  <div class="dialog-actions">
+    <button class="btn" id="btnCloseOpen">Schließen</button>
+  </div>
+</dialog>
+
+<dialog id="helpDialog">
+  <h3>Kurzhilfe</h3>
+  <div class="help">
+    <div>
+      <h4>Bedienung</h4>
+      <ul>
+        <li><b>Linke Maustaste</b> – Punkt setzen bzw. auswählen</li>
+        <li><b>Rechte Maustaste / Enter</b> – Befehl abschließen</li>
+        <li><b>Esc</b> – abbrechen</li>
+        <li><b>Mausrad</b> – zoomen, <b>Mittlere Taste</b> – verschieben</li>
+        <li>Auswahlfenster: links→rechts umschließend, rechts→links kreuzend</li>
+      </ul>
+      <h4>Eingaben</h4>
+      <ul>
+        <li><code>100,50</code> – absolute Koordinate</li>
+        <li><code>@50,0</code> – relativ zum letzten Punkt</li>
+        <li><code>@100&lt;45</code> – Länge und Winkel</li>
+        <li><code>75</code> – Länge in Cursorrichtung</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Tasten</h4>
+      <ul>
+        <li><b>L</b> Linie · <b>P</b> Polylinie · <b>R</b> Rechteck</li>
+        <li><b>K</b> Kreis · <b>B</b> Bogen · <b>T</b> Text</li>
+        <li><b>M</b> Maß · <b>H</b> Schraffur</li>
+        <li><b>V</b> Verschieben · <b>C</b> Kopieren · <b>D</b> Drehen</li>
+        <li><b>S</b> Stutzen · <b>E</b> Dehnen · <b>F</b> Runden</li>
+        <li><b>Entf</b> löschen · <b>Strg+A</b> alles wählen</li>
+        <li><b>F3</b> Fang · <b>F7</b> Raster · <b>F8</b> Ortho · <b>F10</b> Polar</li>
+      </ul>
+      <h4>Befehle tippen</h4>
+      <p class="muted small">linie, polylinie, rechteck, kreis, bogen, text, schraffur,
+        mass, winkelmass, radiusmass, verschieben, kopieren, drehen, spiegeln, versatz,
+        stutzen, dehnen, runden, fasen, messen, zoom</p>
+    </div>
+  </div>
+  <div class="dialog-actions"><button class="btn" id="btnCloseHelp">Schließen</button></div>
+</dialog>
+
+<input type="file" id="fileInput" accept=".dxf,.json,.FCStd,.step,.stp" hidden>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "daro-cad"
+version = "1.0.0"
+description = "CAD-App für technische Zeichnungen – 2D-Zeichenbrett im Browser, Ansichtsableitung, optionale FreeCAD-Kopplung"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["cad", "technische-zeichnung", "dxf", "freecad", "din", "iso"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: Manufacturing",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: German",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics :: Editors :: Vector-Based",
+    "Topic :: Scientific/Engineering :: Human Machine Interfaces",
+]
+
+# Bewusst keine Laufzeitabhängigkeiten: der Kern nutzt nur die Standardbibliothek.
+dependencies = []
+
+[project.optional-dependencies]
+# FreeCAD wird nicht über pip installiert, sondern als Programm erkannt.
+# Siehe README, Abschnitt "FreeCAD anbinden".
+test = ["playwright>=1.40"]
+
+[project.scripts]
+daro-cad = "daro_cad.__main__:main"
+
+[project.urls]
+Quelltext = "https://github.com/darods76-droid/Daro-"
+
+[tool.setuptools]
+packages = ["daro_cad"]
+
+[tool.setuptools.package-data]
+daro_cad = []
+
+[tool.setuptools.data-files]
+"share/daro-cad/web" = ["web/index.html"]
+"share/daro-cad/web/js" = ["web/js/*.js"]
+"share/daro-cad/web/css" = ["web/css/*.css"]

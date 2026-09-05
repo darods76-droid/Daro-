@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Arbeitsordner der App (Standard: ~/DaroCAD)
+DaroCAD/
+
+# FreeCAD-Sicherungskopien
+*.FCStd1
+*.FCBak
+
+# Werkzeuge
+.pytest_cache/
+.coverage
+.DS_Store
+*.wrap.html

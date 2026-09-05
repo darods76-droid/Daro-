@@ -1,0 +1,401 @@
+{
+ "version": 1,
+ "meta": {
+  "title": "Winkelblech",
+  "subtitle": "Schnitt A-A",
+  "drawingNumber": "DC-1002",
+  "revision": "0",
+  "date": "05.09.2026",
+  "author": "D. Rodriguez",
+  "approvedBy": "",
+  "company": "DARO Konstruktion",
+  "material": "AlMg3",
+  "weight": "0,21 kg",
+  "scale": "1:1",
+  "sheet": "A4L",
+  "landscape": true,
+  "sheetName": "1",
+  "sheetCount": "1",
+  "projection": "first",
+  "generalTolerance": "ISO 2768-m",
+  "surface": "",
+  "units": "mm"
+ },
+ "layers": [
+  {
+   "name": "Kontur",
+   "color": "#111111",
+   "lineweight": 0.5,
+   "linetype": "continuous",
+   "visible": true,
+   "locked": false,
+   "printable": true
+  },
+  {
+   "name": "Verdeckt",
+   "color": "#8a6d3b",
+   "lineweight": 0.25,
+   "linetype": "dashed",
+   "visible": true,
+   "locked": false,
+   "printable": true
+  },
+  {
+   "name": "Mittellinie",
+   "color": "#b03060",
+   "lineweight": 0.25,
+   "linetype": "center",
+   "visible": true,
+   "locked": false,
+   "printable": true
+  },
+  {
+   "name": "Bemassung",
+   "color": "#1c6ea4",
+   "lineweight": 0.25,
+   "linetype": "continuous",
+   "visible": true,
+   "locked": false,
+   "printable": true
+  },
+  {
+   "name": "Schraffur",
+   "color": "#4a7f4a",
+   "lineweight": 0.25,
+   "linetype": "continuous",
+   "visible": true,
+   "locked": false,
+   "printable": true
+  },
+  {
+   "name": "Hilfslinie",
+   "color": "#999999",
+   "lineweight": 0.25,
+   "linetype": "continuous",
+   "visible": true,
+   "locked": false,
+   "printable": false
+  },
+  {
+   "name": "Text",
+   "color": "#111111",
+   "lineweight": 0.25,
+   "linetype": "continuous",
+   "visible": true,
+   "locked": false,
+   "printable": true
+  }
+ ],
+ "entities": [
+  {
+   "type": "polyline",
+   "pts": [
+    [
+     80.0,
+     110.0
+    ],
+    [
+     160.0,
+     110.0
+    ],
+    [
+     160.0,
+     118.0
+    ],
+    [
+     96.0,
+     118.0
+    ],
+    [
+     88.0,
+     126.0
+    ],
+    [
+     88.0,
+     170.0
+    ],
+    [
+     80.0,
+     170.0
+    ]
+   ],
+   "bulges": [
+    0.0,
+    0.0,
+    0.0,
+    -0.41421356237309503,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "closed": true,
+   "layer": "Kontur",
+   "id": "54ac4762cb10"
+  },
+  {
+   "type": "hatch",
+   "pts": [
+    [
+     80.0,
+     110.0
+    ],
+    [
+     160.0,
+     110.0
+    ],
+    [
+     160.0,
+     118.0
+    ],
+    [
+     96.0,
+     118.0
+    ],
+    [
+     88.0,
+     126.0
+    ],
+    [
+     88.15371775677416,
+     124.43927742387098
+    ],
+    [
+     88.6089637399097,
+     122.93853254107928
+    ],
+    [
+     89.34824310157964,
+     121.55543813584318
+    ],
+    [
+     90.34314575050762,
+     120.34314575050762
+    ],
+    [
+     91.55543813584318,
+     119.34824310157964
+    ],
+    [
+     92.93853254107928,
+     118.6089637399097
+    ],
+    [
+     94.43927742387098,
+     118.15371775677416
+    ],
+    [
+     96.0,
+     118.0
+    ],
+    [
+     88.0,
+     126.0
+    ],
+    [
+     88.0,
+     170.0
+    ],
+    [
+     80.0,
+     170.0
+    ],
+    [
+     80.0,
+     110.0
+    ]
+   ],
+   "angle": 45.0,
+   "spacing": 3.0,
+   "layer": "Schraffur",
+   "id": "1dbbc11ef748"
+  },
+  {
+   "type": "circle",
+   "c": [
+    140.0,
+    114.0
+   ],
+   "r": 3.5,
+   "layer": "Kontur",
+   "id": "127b465b870b"
+  },
+  {
+   "type": "line",
+   "a": [
+    132.5,
+    114.0
+   ],
+   "b": [
+    147.5,
+    114.0
+   ],
+   "layer": "Mittellinie",
+   "id": "49623cc646be"
+  },
+  {
+   "type": "line",
+   "a": [
+    140.0,
+    106.5
+   ],
+   "b": [
+    140.0,
+    121.5
+   ],
+   "layer": "Mittellinie",
+   "id": "c871790b4f52"
+  },
+  {
+   "type": "dim",
+   "kind": "linear",
+   "layer": "Bemassung",
+   "decimals": 0,
+   "p1": [
+    80.0,
+    110.0
+   ],
+   "p2": [
+    160.0,
+    110.0
+   ],
+   "pos": [
+    120.0,
+    90.0
+   ],
+   "id": "3b1ba21a9c27",
+   "h": 3.5,
+   "prefix": "",
+   "suffix": ""
+  },
+  {
+   "type": "dim",
+   "kind": "linear",
+   "axis": "y",
+   "layer": "Bemassung",
+   "decimals": 0,
+   "p1": [
+    80.0,
+    110.0
+   ],
+   "p2": [
+    80.0,
+    170.0
+   ],
+   "pos": [
+    60.0,
+    140.0
+   ],
+   "id": "9a998c89299b",
+   "h": 3.5,
+   "prefix": "",
+   "suffix": ""
+  },
+  {
+   "type": "dim",
+   "kind": "linear",
+   "axis": "y",
+   "layer": "Bemassung",
+   "decimals": 0,
+   "p1": [
+    160.0,
+    110.0
+   ],
+   "p2": [
+    160.0,
+    118.0
+   ],
+   "pos": [
+    178.0,
+    114.0
+   ],
+   "id": "a33db23f7ae6",
+   "h": 3.5,
+   "prefix": "",
+   "suffix": ""
+  },
+  {
+   "type": "dim",
+   "kind": "diameter",
+   "layer": "Bemassung",
+   "decimals": 0,
+   "p1": [
+    140.0,
+    114.0
+   ],
+   "p2": [
+    140.0,
+    117.5
+   ],
+   "pos": [
+    162.0,
+    144.0
+   ],
+   "id": "83e71a0dbf65",
+   "h": 3.5,
+   "prefix": "",
+   "suffix": ""
+  },
+  {
+   "type": "dim",
+   "kind": "radius",
+   "layer": "Bemassung",
+   "decimals": 0,
+   "p1": [
+    96.0,
+    126.0
+   ],
+   "p2": [
+    90.344,
+    120.344
+   ],
+   "pos": [
+    126.0,
+    150.0
+   ],
+   "id": "c5a4424d2fed",
+   "h": 3.5,
+   "prefix": "",
+   "suffix": ""
+  },
+  {
+   "type": "dim",
+   "kind": "angular",
+   "layer": "Bemassung",
+   "decimals": 0,
+   "center": [
+    80.0,
+    110.0
+   ],
+   "p1": [
+    106.0,
+    110.0
+   ],
+   "p2": [
+    80.0,
+    136.0
+   ],
+   "pos": [
+    95.0,
+    125.0
+   ],
+   "id": "53e7f10c0a78",
+   "h": 3.5,
+   "prefix": "",
+   "suffix": ""
+  },
+  {
+   "type": "text",
+   "p": [
+    120.0,
+    182.0
+   ],
+   "h": 5.0,
+   "align": "center",
+   "layer": "Text",
+   "text": "SCHNITT A-A",
+   "id": "520fe63365ca",
+   "rot": 0.0
+  }
+ ],
+ "solids": []
+}
