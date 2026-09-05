@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wirtschaftskalender-Prognose</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">📊</span>
+    <div>
+      <h1>Wirtschaftskalender-Prognose</h1>
+      <p class="sub">Konsensprognosen gegen die Nachrichtenlage geprüft</p>
+    </div>
+  </div>
+  <div class="actions">
+    <span id="status" class="status"></span>
+    <button id="scan" class="btn primary">Jetzt scannen</button>
+  </div>
+</header>
+
+<main>
+  <section class="stats" id="stats"></section>
+
+  <section class="toolbar">
+    <div class="filters" id="filters">
+      <button class="chip active" data-verdict="ALLE">Alle</button>
+      <button class="chip" data-verdict="BESTAETIGT">bestätigt</button>
+      <button class="chip" data-verdict="WIDERLEGT_HOEHER">widerlegt ▲</button>
+      <button class="chip" data-verdict="WIDERLEGT_NIEDRIGER">widerlegt ▼</button>
+      <button class="chip" data-verdict="UNBESTAETIGT">unbestätigt</button>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" id="showPast"> vergangene Termine einblenden
+    </label>
+  </section>
+
+  <section id="cards" class="cards"></section>
+  <p id="empty" class="empty hidden">Noch keine Bewertungen. Klicken Sie auf „Jetzt scannen“.</p>
+</main>
+
+<footer>
+  <span id="meta"></span>
+  <span class="disclaimer">Keine Anlageberatung. Wahrscheinlichkeiten sind Modellschätzungen
+    aus öffentlich zugänglichen Nachrichten.</span>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

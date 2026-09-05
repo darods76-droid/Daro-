@@ -1,0 +1,6 @@
+# Die App läuft vollständig mit der Python-Standardbibliothek (ab Python 3.10).
+# Es sind KEINE Abhängigkeiten nötig – weder für den Scanner noch für die
+# Weboberfläche. Diese Datei existiert nur, damit `pip install -r` gelingt.
+
+# Optional, nur für die Entwicklung:
+# pytest>=7.0

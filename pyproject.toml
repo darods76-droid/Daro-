@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ekp-wirtschaftskalender"
+version = "1.0.0"
+description = "Scannt den Wirtschaftskalender und prüft Konsensprognosen mit einem Wahrscheinlichkeitswert gegen die Nachrichtenlage"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["wirtschaftskalender", "economic-calendar", "nachrichtenanalyse", "prognose"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business :: Financial",
+    "Natural Language :: German",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+ekp = "ekp.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["ekp*"]
+
+[tool.setuptools.package-data]
+ekp = ["web/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
