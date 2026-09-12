@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Moorhuhn Jagd</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    height:100%; background:#10161f; overflow:hidden;
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    color:#fff;
+  }
+  #wrap {
+    position:relative; width:100vw; height:100vh;
+    display:flex; align-items:center; justify-content:center;
+  }
+  canvas {
+    display:block; background:#87ceeb;
+    max-width:100%; max-height:100%;
+    cursor:none; touch-action:none;
+  }
+  .overlay {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(8,14,22,.82); backdrop-filter:blur(3px);
+    text-align:center; padding:24px; gap:14px;
+  }
+  .overlay.hidden { display:none; }
+  h1 { font-size:clamp(32px,7vw,64px); letter-spacing:2px; text-shadow:0 4px 0 #00000055; }
+  h1 span { color:#ffcc33; }
+  p { max-width:520px; line-height:1.55; font-size:clamp(14px,2.2vw,17px); color:#cfd8e3; }
+  .keys { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .key {
+    background:#1e2a38; border:1px solid #33455c; border-radius:6px;
+    padding:6px 12px; font-size:13px; color:#9fb3c8;
+  }
+  .key b { color:#fff; }
+  button {
+    margin-top:6px; padding:14px 38px; font-size:20px; font-weight:bold;
+    font-family:inherit; letter-spacing:1px;
+    color:#20160a; background:linear-gradient(#ffd75e,#f0a91d);
+    border:none; border-bottom:4px solid #a8710c; border-radius:10px; cursor:pointer;
+  }
+  button:hover { filter:brightness(1.08); }
+  button:active { transform:translateY(2px); border-bottom-width:2px; }
+  .stats { display:flex; gap:28px; flex-wrap:wrap; justify-content:center; margin-top:4px; }
+  .stat { min-width:110px; }
+  .stat .v { font-size:34px; font-weight:bold; color:#ffcc33; }
+  .stat .l { font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#8fa3b8; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="1280" height="720"></canvas>
+
+  <div id="startScreen" class="overlay">
+    <h1>MOORHUHN <span>JAGD</span></h1>
+    <p>Schieß in 90&nbsp;Sekunden so viele Hühner wie möglich ab.
+       Weit entfernte Hühner geben mehr Punkte. Vorsicht: Danebenschießen kostet Punkte,
+       und das Schild am Boden solltest du in Ruhe lassen.</p>
+    <div class="keys">
+      <span class="key"><b>Maus</b> zielen</span>
+      <span class="key"><b>Klick</b> schießen</span>
+      <span class="key"><b>R</b> / Rechtsklick nachladen</span>
+      <span class="key"><b>P</b> Pause</span>
+      <span class="key"><b>M</b> Ton an/aus</span>
+    </div>
+    <button id="startBtn">Jagd starten</button>
+  </div>
+
+  <div id="endScreen" class="overlay hidden">
+    <h1>Jagd <span>vorbei</span></h1>
+    <div class="stats">
+      <div class="stat"><div class="v" id="fScore">0</div><div class="l">Punkte</div></div>
+      <div class="stat"><div class="v" id="fKills">0</div><div class="l">Hühner</div></div>
+      <div class="stat"><div class="v" id="fAcc">0%</div><div class="l">Treffer</div></div>
+      <div class="stat"><div class="v" id="fBest">0</div><div class="l">Rekord</div></div>
+    </div>
+    <p id="fMsg"></p>
+    <button id="againBtn">Nochmal jagen</button>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const W = canvas.width, H = canvas.height;
+const GROUND = H * 0.78;
+
+const ROUND_TIME = 90;
+const MAG_SIZE = 8;
+const RELOAD_TIME = 1.1;
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const randInt = (a, b) => Math.floor(rand(a, b + 1));
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+
+/* ---------------- Sound (WebAudio, keine externen Dateien) ---------------- */
+const Sound = {
+  ctx: null, on: true,
+  init() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) this.ctx = new AC();
+    }
+    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+  },
+  tone(freq, dur, type, vol, slide) {
+    if (!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type || "square";
+    o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, slide), t + dur);
+    g.gain.setValueAtTime(vol || 0.15, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  },
+  noise(dur, vol, filterFreq) {
+    if (!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const n = Math.floor(this.ctx.sampleRate * dur);
+    const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = this.ctx.createBufferSource(); src.buffer = buf;
+    const f = this.ctx.createBiquadFilter();
+    f.type = "lowpass"; f.frequency.value = filterFreq || 1400;
+    const g = this.ctx.createGain(); g.gain.value = vol || 0.3;
+    src.connect(f); f.connect(g); g.connect(this.ctx.destination);
+    src.start(t);
+  },
+  shot()   { this.noise(0.18, 0.35, 2200); this.tone(180, 0.12, "sawtooth", 0.12, 60); },
+  cluck()  { this.tone(rand(620, 780), 0.09, "square", 0.10, rand(300, 420)); },
+  hit()    { this.tone(900, 0.07, "square", 0.14, 200); this.noise(0.12, 0.18, 900); },
+  reload() { this.tone(300, 0.05, "square", 0.10); setTimeout(() => this.tone(420, 0.06, "square", 0.10), 140); },
+  empty()  { this.tone(120, 0.05, "square", 0.10); },
+  bonus()  { [660, 880, 1180].forEach((f, i) => setTimeout(() => this.tone(f, 0.11, "triangle", 0.13), i * 80)); },
+  penalty(){ this.tone(200, 0.3, "sawtooth", 0.16, 70); }
+};
+
+/* ---------------- Spielzustand ---------------- */
+const state = {
+  mode: "menu",          // menu | playing | paused | over
+  time: ROUND_TIME,
+  score: 0, kills: 0, shots: 0, hits: 0,
+  combo: 0, comboTimer: 0,
+  ammo: MAG_SIZE, reloading: 0,
+  spawnTimer: 0,
+  shake: 0,
+  best: +(localStorage.getItem("moorhuhn_best") || 0)
+};
+
+const mouse = { x: W / 2, y: H / 2, down: false, recoil: 0 };
+const chickens = [];
+const particles = [];
+const floatTexts = [];
+const clouds = [];
+const trees = [];
+const grasses = [];
+
+/* ---------------- Kulisse ---------------- */
+function buildScenery() {
+  clouds.length = trees.length = grasses.length = 0;
+  for (let i = 0; i < 7; i++)
+    clouds.push({ x: rand(-100, W + 100), y: rand(40, H * 0.34), s: rand(0.55, 1.35), v: rand(4, 14) });
+  for (let i = 0; i < 14; i++) {
+    const d = rand(0, 1);
+    trees.push({ x: rand(-40, W + 40), d, h: rand(70, 150) * (0.55 + d * 0.9), w: rand(28, 52) * (0.6 + d * 0.8) });
+  }
+  trees.sort((a, b) => a.d - b.d);
+  for (let i = 0; i < 90; i++)
+    grasses.push({ x: rand(0, W), y: rand(GROUND - 6, H), h: rand(10, 30), p: rand(0, 6.28) });
+}
+buildScenery();
+
+/* ---------------- Huhn ---------------- */
+const CHICKEN_TYPES = {
+  normal: { color: "#8b4a2b", belly: "#c97a44", points: 100, hpBase: 1 },
+  fast:   { color: "#4a5d7e", belly: "#8aa0c4", points: 200, hpBase: 1 },
+  golden: { color: "#d4a017", belly: "#ffe08a", points: 500, hpBase: 2 }
+};
+
+function spawnChicken() {
+  const roll = Math.random();
+  const type = roll > 0.94 ? "golden" : roll > 0.72 ? "fast" : "normal";
+  // depth: 0 = weit weg (klein, viele Punkte), 1 = nah (groß)
+  const depth = Math.pow(Math.random(), 0.85);
+  const scale = 0.34 + depth * 0.86;
+  const fromLeft = Math.random() < 0.5;
+  const baseSpeed = type === "fast" ? rand(210, 300) : rand(95, 170);
+  const c = {
+    type,
+    x: fromLeft ? -90 : W + 90,
+    y: rand(H * 0.12, GROUND - 40 * scale),
+    dir: fromLeft ? 1 : -1,
+    vx: (fromLeft ? 1 : -1) * baseSpeed * (0.5 + depth * 0.7),
+    vy: 0,
+    bobPhase: rand(0, 6.28),
+    bobAmp: rand(6, 18),
+    wing: rand(0, 6.28),
+    scale, depth,
+    hp: CHICKEN_TYPES[type].hpBase,
+    dead: false, deadT: 0, rot: 0,
+    cluckTimer: rand(0.8, 3)
+  };
+  chickens.push(c);
+}
+
+/* ---------------- Partikel / Texte ---------------- */
+function burstFeathers(x, y, n, color) {
+  for (let i = 0; i < n; i++) {
+    particles.push({
+      x, y,
+      vx: rand(-160, 160), vy: rand(-190, 40),
+      g: rand(120, 260), life: rand(0.7, 1.7), t: 0,
+      size: rand(3, 8), rot: rand(0, 6.28), vr: rand(-6, 6),
+      color: color || (Math.random() < 0.5 ? "#f4e4d0" : "#c97a44")
+    });
+  }
+}
+function popText(x, y, text, color) {
+  floatTexts.push({ x, y, text, color: color || "#ffcc33", t: 0, life: 1.0 });
+}
+
+/* ---------------- Schießen ---------------- */
+function toCanvas(e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (W / r.width),
+    y: (e.clientY - r.top) * (H / r.height)
+  };
+}
+
+function shoot() {
+  if (state.mode !== "playing") return;
+  if (state.reloading > 0) return;
+  if (state.ammo <= 0) { Sound.empty(); popText(mouse.x, mouse.y - 30, "Nachladen! (R)", "#ff8080"); return; }
+
+  state.ammo--;
+  state.shots++;
+  state.shake = 9;
+  mouse.recoil = 1;
+  Sound.shot();
+
+  // Mündungsrauch
+  for (let i = 0; i < 5; i++) {
+    particles.push({
+      x: mouse.x + rand(-6, 6), y: mouse.y + rand(-6, 6),
+      vx: rand(-40, 40), vy: rand(-60, -10), g: -20,
+      life: 0.5, t: 0, size: rand(4, 9), rot: 0, vr: 0, color: "#ffffff88"
+    });
+  }
+
+  // Treffer prüfen: vorderste (größte) Ziele zuerst
+  const order = chickens.filter(c => !c.dead).sort((a, b) => b.scale - a.scale);
+  for (const c of order) {
+    const hw = 46 * c.scale, hh = 34 * c.scale;
+    if (Math.abs(mouse.x - c.x) < hw && Math.abs(mouse.y - c.y) < hh) {
+      hitChicken(c);
+      return;
+    }
+  }
+
+  // Schild getroffen?
+  if (Math.abs(mouse.x - sign.x) < 62 && Math.abs(mouse.y - sign.y) < 46) {
+    state.score = Math.max(0, state.score - 150);
+    state.combo = 0;
+    Sound.penalty();
+    popText(sign.x, sign.y - 50, "-150  Schild!", "#ff6060");
+    burstFeathers(mouse.x, mouse.y, 8, "#9a7b52");
+    return;
+  }
+
+  // Daneben
+  state.combo = 0;
+  state.score = Math.max(0, state.score - 10);
+  popText(mouse.x, mouse.y - 24, "-10", "#ff8080");
+  burstFeathers(mouse.x, mouse.y, 4, "#ffffff66");
+}
+
+function hitChicken(c) {
+  c.hp--;
+  state.hits++;
+  Sound.hit();
+  burstFeathers(c.x, c.y, 10, null);
+
+  if (c.hp > 0) {
+    popText(c.x, c.y - 30 * c.scale, "Treffer!", "#ffffff");
+    c.vy = -60;
+    return;
+  }
+
+  c.dead = true;
+  c.vy = -70;
+  state.kills++;
+  state.combo++;
+  state.comboTimer = 2.2;
+
+  const t = CHICKEN_TYPES[c.type];
+  const distBonus = 1 + (1 - c.depth) * 1.5;          // weiter weg = mehr Punkte
+  const comboMul = 1 + Math.min(state.combo - 1, 5) * 0.2;
+  const pts = Math.round(t.points * distBonus * comboMul);
+  state.score += pts;
+
+  let label = "+" + pts;
+  if (state.combo > 1) label += "  x" + state.combo;
+  popText(c.x, c.y - 34 * c.scale, label, c.type === "golden" ? "#ffe08a" : "#ffcc33");
+  burstFeathers(c.x, c.y, 16, null);
+  if (c.type === "golden") { Sound.bonus(); state.time = Math.min(ROUND_TIME, state.time + 3); popText(c.x, c.y - 62 * c.scale, "+3 Sek.", "#9fe870"); }
+}
+
+function reload() {
+  if (state.mode !== "playing") return;
+  if (state.reloading > 0 || state.ammo === MAG_SIZE) return;
+  state.reloading = RELOAD_TIME;
+  Sound.reload();
+}
+
+/* ---------------- Schild (Nicht-drauf-schießen-Objekt) ---------------- */
+const sign = { x: W * 0.5, y: GROUND + 26 };
+
+/* ---------------- Update ---------------- */
+function update(dt) {
+  // Kulisse bewegt sich immer
+  for (const cl of clouds) {
+    cl.x += cl.v * dt;
+    if (cl.x - 140 * cl.s > W) { cl.x = -140 * cl.s; cl.y = rand(40, H * 0.34); }
+  }
+  for (const p of particles) {
+    p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vy += p.g * dt; p.vx *= 0.99; p.rot += p.vr * dt;
+  }
+  for (let i = particles.length - 1; i >= 0; i--) if (particles[i].t >= particles[i].life) particles.splice(i, 1);
+
+  for (const f of floatTexts) { f.t += dt; f.y -= 46 * dt; }
+  for (let i = floatTexts.length - 1; i >= 0; i--) if (floatTexts[i].t >= floatTexts[i].life) floatTexts.splice(i, 1);
+
+  if (state.shake > 0) state.shake = Math.max(0, state.shake - 40 * dt);
+  if (mouse.recoil > 0) mouse.recoil = Math.max(0, mouse.recoil - 4 * dt);
+
+  if (state.mode !== "playing") return;
+
+  state.time -= dt;
+  if (state.time <= 0) { state.time = 0; endGame(); return; }
+
+  if (state.reloading > 0) {
+    state.reloading -= dt;
+    if (state.reloading <= 0) { state.reloading = 0; state.ammo = MAG_SIZE; }
+  }
+
+  if (state.comboTimer > 0) {
+    state.comboTimer -= dt;
+    if (state.comboTimer <= 0) state.combo = 0;
+  }
+
+  // Spawn: wird mit der Zeit schneller
+  const progress = 1 - state.time / ROUND_TIME;
+  const interval = clamp(1.15 - progress * 0.75, 0.32, 1.15);
+  state.spawnTimer -= dt;
+  if (state.spawnTimer <= 0) {
+    spawnChicken();
+    if (Math.random() < 0.25 + progress * 0.3) spawnChicken();
+    state.spawnTimer = interval * rand(0.7, 1.3);
+  }
+
+  for (let i = chickens.length - 1; i >= 0; i--) {
+    const c = chickens[i];
+    if (c.dead) {
+      c.deadT += dt;
+      c.vy += 900 * dt;
+      c.x += c.vx * 0.25 * dt;
+      c.y += c.vy * dt;
+      c.rot += 7 * dt * c.dir;
+      if (c.y > H + 120) chickens.splice(i, 1);
+      continue;
+    }
+    c.bobPhase += dt * 3.2;
+    c.wing += dt * (c.type === "fast" ? 20 : 13);
+    c.x += c.vx * dt;
+    c.y += Math.sin(c.bobPhase) * c.bobAmp * dt * 8 + c.vy * dt;
+    c.vy *= 0.92;
+    c.y = clamp(c.y, 40, GROUND - 20 * c.scale);
+
+    c.cluckTimer -= dt;
+    if (c.cluckTimer <= 0) { c.cluckTimer = rand(2.5, 6); if (Math.random() < 0.35) Sound.cluck(); }
+
+    if (c.x < -140 || c.x > W + 140) chickens.splice(i, 1);
+  }
+}
+
+/* ---------------- Zeichnen ---------------- */
+function drawBackground(t) {
+  // Himmel
+  const sky = ctx.createLinearGradient(0, 0, 0, GROUND);
+  sky.addColorStop(0, "#3f8fd0");
+  sky.addColorStop(0.55, "#87ceeb");
+  sky.addColorStop(1, "#cfe9f2");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, GROUND + 2);
+
+  // Sonne
+  ctx.fillStyle = "rgba(255,240,170,.85)";
+  ctx.beginPath(); ctx.arc(W * 0.84, H * 0.15, 46, 0, 6.284); ctx.fill();
+  ctx.fillStyle = "rgba(255,240,170,.18)";
+  ctx.beginPath(); ctx.arc(W * 0.84, H * 0.15, 84, 0, 6.284); ctx.fill();
+
+  // Wolken
+  ctx.fillStyle = "rgba(255,255,255,.85)";
+  for (const cl of clouds) {
+    const s = cl.s;
+    ctx.beginPath();
+    ctx.arc(cl.x, cl.y, 26 * s, 0, 6.284);
+    ctx.arc(cl.x + 30 * s, cl.y + 6 * s, 20 * s, 0, 6.284);
+    ctx.arc(cl.x - 30 * s, cl.y + 8 * s, 18 * s, 0, 6.284);
+    ctx.arc(cl.x + 8 * s, cl.y - 16 * s, 20 * s, 0, 6.284);
+    ctx.fill();
+  }
+
+  // Ferne Hügel
+  ctx.fillStyle = "#6f9c6a";
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND);
+  for (let x = 0; x <= W; x += 20)
+    ctx.lineTo(x, GROUND - 60 - Math.sin(x * 0.004) * 40 - Math.sin(x * 0.011 + 2) * 18);
+  ctx.lineTo(W, GROUND); ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = "#5c8a55";
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND);
+  for (let x = 0; x <= W; x += 20)
+    ctx.lineTo(x, GROUND - 26 - Math.sin(x * 0.007 + 1) * 22);
+  ctx.lineTo(W, GROUND); ctx.closePath(); ctx.fill();
+
+  // Bäume
+  for (const tr of trees) {
+    const y = GROUND - 10 - (1 - tr.d) * 46;
+    ctx.fillStyle = tr.d > 0.5 ? "#4a3423" : "#5b4130";
+    ctx.fillRect(tr.x - tr.w * 0.09, y - tr.h * 0.42, tr.w * 0.18, tr.h * 0.44);
+    const g = ctx.createRadialGradient(tr.x, y - tr.h * 0.62, 2, tr.x, y - tr.h * 0.62, tr.w);
+    g.addColorStop(0, tr.d > 0.5 ? "#4f7f42" : "#3f6a37");
+    g.addColorStop(1, tr.d > 0.5 ? "#335c2c" : "#284a23");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(tr.x, y - tr.h * 0.62, tr.w * 0.62, 0, 6.284);
+    ctx.arc(tr.x - tr.w * 0.36, y - tr.h * 0.46, tr.w * 0.44, 0, 6.284);
+    ctx.arc(tr.x + tr.w * 0.36, y - tr.h * 0.48, tr.w * 0.46, 0, 6.284);
+    ctx.fill();
+  }
+
+  // Boden
+  const gr = ctx.createLinearGradient(0, GROUND, 0, H);
+  gr.addColorStop(0, "#4e7d3f");
+  gr.addColorStop(1, "#2f5228");
+  ctx.fillStyle = gr;
+  ctx.fillRect(0, GROUND, W, H - GROUND);
+
+  // Gras
+  ctx.strokeStyle = "#6fa257"; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (const g2 of grasses) {
+    const sway = Math.sin(t * 1.6 + g2.p) * 5;
+    ctx.moveTo(g2.x, g2.y);
+    ctx.quadraticCurveTo(g2.x + sway * 0.5, g2.y - g2.h * 0.6, g2.x + sway, g2.y - g2.h);
+  }
+  ctx.stroke();
+
+  drawSign();
+}
+
+function drawSign() {
+  const x = sign.x, y = sign.y;
+  ctx.fillStyle = "#6b4b2a";
+  ctx.fillRect(x - 5, y - 10, 10, 62);
+  ctx.fillStyle = "#c9a227";
+  ctx.strokeStyle = "#7d5f12"; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.roundRect(x - 58, y - 42, 116, 54, 8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#4a3208";
+  ctx.font = "bold 17px 'Trebuchet MS', sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("NICHT", x, y - 27);
+  ctx.fillText("SCHIESSEN", x, y - 6);
+}
+
+function drawChicken(c) {
+  const s = c.scale;
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.rotate(c.rot);
+  ctx.scale(c.dir * s, s);
+
+  const t = CHICKEN_TYPES[c.type];
+  const flap = c.dead ? 0 : Math.sin(c.wing) * 0.9;
+
+  // Schatten am Körper
+  ctx.fillStyle = "rgba(0,0,0,.15)";
+  ctx.beginPath(); ctx.ellipse(2, 6, 34, 22, 0, 0, 6.284); ctx.fill();
+
+  // Hinterer Flügel
+  ctx.fillStyle = "#00000033";
+  ctx.beginPath();
+  ctx.ellipse(-6, -4 + flap * 8, 22, 11, flap * 0.5, 0, 6.284);
+  ctx.fill();
+
+  // Schwanzfedern
+  ctx.fillStyle = t.color;
+  ctx.beginPath();
+  ctx.moveTo(-26, -4);
+  ctx.quadraticCurveTo(-52, -26, -44, -2);
+  ctx.quadraticCurveTo(-52, 4, -28, 10);
+  ctx.closePath(); ctx.fill();
+
+  // Körper
+  const bg = ctx.createLinearGradient(0, -24, 0, 24);
+  bg.addColorStop(0, t.color);
+  bg.addColorStop(1, t.belly);
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.ellipse(0, 0, 32, 23, 0, 0, 6.284); ctx.fill();
+
+  // Beine
+  ctx.strokeStyle = "#e0a33a"; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(2, 18); ctx.lineTo(0, 30); ctx.lineTo(8, 33);
+  ctx.moveTo(12, 17); ctx.lineTo(12, 29); ctx.lineTo(20, 32);
+  ctx.stroke();
+
+  // Vorderer Flügel
+  const wg = ctx.createLinearGradient(0, -14, 0, 10);
+  wg.addColorStop(0, "#ffffffcc");
+  wg.addColorStop(1, t.color);
+  ctx.fillStyle = wg;
+  ctx.save();
+  ctx.translate(-2, -6);
+  ctx.rotate(flap * 0.55);
+  ctx.beginPath(); ctx.ellipse(0, 0, 26, 13, 0, 0, 6.284); ctx.fill();
+  ctx.strokeStyle = "#00000022"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+
+  // Hals + Kopf
+  ctx.fillStyle = t.color;
+  ctx.beginPath(); ctx.ellipse(24, -14, 11, 13, -0.3, 0, 6.284); ctx.fill();
+  ctx.beginPath(); ctx.arc(32, -24, 13, 0, 6.284); ctx.fill();
+
+  // Kamm
+  ctx.fillStyle = "#d63b3b";
+  ctx.beginPath();
+  ctx.arc(28, -35, 5, 0, 6.284);
+  ctx.arc(35, -37, 6, 0, 6.284);
+  ctx.arc(42, -34, 5, 0, 6.284);
+  ctx.fill();
+  // Kehllappen
+  ctx.beginPath(); ctx.ellipse(34, -12, 4, 6, 0, 0, 6.284); ctx.fill();
+
+  // Schnabel
+  ctx.fillStyle = "#f2a72c";
+  ctx.beginPath();
+  ctx.moveTo(43, -25); ctx.lineTo(57, -21); ctx.lineTo(43, -17);
+  ctx.closePath(); ctx.fill();
+
+  // Auge
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.arc(37, -27, 4.6, 0, 6.284); ctx.fill();
+  ctx.fillStyle = "#111";
+  if (c.dead) {
+    ctx.lineWidth = 2; ctx.strokeStyle = "#111";
+    ctx.beginPath();
+    ctx.moveTo(34, -30); ctx.lineTo(40, -24);
+    ctx.moveTo(40, -30); ctx.lineTo(34, -24);
+    ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.arc(38, -27, 2.2, 0, 6.284); ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const a = 1 - p.t / p.life;
+    ctx.save();
+    ctx.globalAlpha = clamp(a, 0, 1);
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, p.size, p.size * 0.45, 0, 0, 6.284);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawFloatTexts() {
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const f of floatTexts) {
+    const a = 1 - f.t / f.life;
+    ctx.globalAlpha = clamp(a, 0, 1);
+    ctx.font = "bold 26px 'Trebuchet MS', sans-serif";
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,.6)";
+    ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawCrosshair() {
+  const r = 22 + mouse.recoil * 16;
+  ctx.save();
+  ctx.translate(mouse.x, mouse.y);
+  ctx.strokeStyle = state.reloading > 0 ? "#ff9a3c" : "#ffffff";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.284); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-r - 10, 0); ctx.lineTo(-6, 0);
+  ctx.moveTo(6, 0); ctx.lineTo(r + 10, 0);
+  ctx.moveTo(0, -r - 10); ctx.lineTo(0, -6);
+  ctx.moveTo(0, 6); ctx.lineTo(0, r + 10);
+  ctx.stroke();
+  ctx.fillStyle = "#ff3b3b";
+  ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, 6.284); ctx.fill();
+
+  if (state.reloading > 0) {
+    const p = 1 - state.reloading / RELOAD_TIME;
+    ctx.strokeStyle = "#ffcc33"; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(0, 0, r + 14, -1.571, -1.571 + 6.284 * p); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawHUD() {
+  // obere Leiste
+  ctx.fillStyle = "rgba(10,18,28,.55)";
+  ctx.fillRect(0, 0, W, 64);
+
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#ffcc33";
+  ctx.font = "bold 30px 'Trebuchet MS', sans-serif";
+  ctx.fillText(String(state.score).padStart(5, "0"), 24, 34);
+  ctx.fillStyle = "#8fa3b8";
+  ctx.font = "13px 'Trebuchet MS', sans-serif";
+  ctx.fillText("PUNKTE", 24, 55);
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 20px 'Trebuchet MS', sans-serif";
+  ctx.fillText("Hühner: " + state.kills, 190, 28);
+  const acc = state.shots ? Math.round(state.hits / state.shots * 100) : 0;
+  ctx.fillStyle = "#9fb3c8";
+  ctx.font = "15px 'Trebuchet MS', sans-serif";
+  ctx.fillText("Trefferquote: " + acc + "%", 190, 50);
+
+  // Zeit
+  ctx.textAlign = "center";
+  const low = state.time <= 10;
+  ctx.fillStyle = low && Math.floor(state.time * 4) % 2 === 0 ? "#ff5a5a" : "#fff";
+  ctx.font = "bold 36px 'Trebuchet MS', sans-serif";
+  ctx.fillText(Math.ceil(state.time) + "s", W / 2, 32);
+  const barW = 240;
+  ctx.fillStyle = "rgba(255,255,255,.2)";
+  ctx.fillRect(W / 2 - barW / 2, 48, barW, 7);
+  ctx.fillStyle = low ? "#ff5a5a" : "#9fe870";
+  ctx.fillRect(W / 2 - barW / 2, 48, barW * (state.time / ROUND_TIME), 7);
+
+  // Munition
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#8fa3b8";
+  ctx.font = "13px 'Trebuchet MS', sans-serif";
+  ctx.fillText(state.reloading > 0 ? "LADE NACH…" : "MUNITION", W - 24, 52);
+  for (let i = 0; i < MAG_SIZE; i++) {
+    const bx = W - 24 - (MAG_SIZE - i) * 16;
+    ctx.fillStyle = i < state.ammo ? "#ffcc33" : "rgba(255,255,255,.18)";
+    ctx.fillRect(bx, 16, 10, 22);
+    ctx.fillStyle = i < state.ammo ? "#c98a1a" : "rgba(255,255,255,.12)";
+    ctx.fillRect(bx, 16, 10, 6);
+  }
+
+  // Combo
+  if (state.combo > 1) {
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffcc33";
+    ctx.font = "bold 32px 'Trebuchet MS', sans-serif";
+    ctx.fillText("COMBO x" + state.combo, W / 2, 96);
+  }
+
+  if (state.mode === "paused") {
+    ctx.fillStyle = "rgba(8,14,22,.7)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 56px 'Trebuchet MS', sans-serif";
+    ctx.fillText("PAUSE", W / 2, H / 2 - 10);
+    ctx.font = "20px 'Trebuchet MS', sans-serif";
+    ctx.fillStyle = "#9fb3c8";
+    ctx.fillText("P drücken zum Weiterspielen", W / 2, H / 2 + 36);
+  }
+}
+
+function render(t) {
+  ctx.save();
+  if (state.shake > 0) {
+    ctx.translate(rand(-state.shake, state.shake), rand(-state.shake, state.shake));
+  }
+  drawBackground(t);
+  chickens.slice().sort((a, b) => a.scale - b.scale).forEach(drawChicken);
+  drawParticles();
+  drawFloatTexts();
+  ctx.restore();
+
+  if (state.mode === "playing" || state.mode === "paused") {
+    drawHUD();
+    drawCrosshair();
+  }
+}
+
+/* ---------------- Ablauf ---------------- */
+const startScreen = document.getElementById("startScreen");
+const endScreen = document.getElementById("endScreen");
+
+function startGame() {
+  Sound.init();
+  chickens.length = 0; particles.length = 0; floatTexts.length = 0;
+  buildScenery();
+  Object.assign(state, {
+    mode: "playing", time: ROUND_TIME,
+    score: 0, kills: 0, shots: 0, hits: 0,
+    combo: 0, comboTimer: 0,
+    ammo: MAG_SIZE, reloading: 0, spawnTimer: 0, shake: 0
+  });
+  startScreen.classList.add("hidden");
+  endScreen.classList.add("hidden");
+}
+
+function endGame() {
+  state.mode = "over";
+  const acc = state.shots ? Math.round(state.hits / state.shots * 100) : 0;
+  const isRecord = state.score > state.best;
+  if (isRecord) {
+    state.best = state.score;
+    localStorage.setItem("moorhuhn_best", String(state.best));
+  }
+  document.getElementById("fScore").textContent = state.score;
+  document.getElementById("fKills").textContent = state.kills;
+  document.getElementById("fAcc").textContent = acc + "%";
+  document.getElementById("fBest").textContent = state.best;
+  document.getElementById("fMsg").textContent = isRecord
+    ? "Neuer Rekord! Das Moor zittert vor dir."
+    : state.kills >= 40 ? "Starke Jagd — aber der Rekord steht noch."
+    : state.kills >= 20 ? "Solide Ausbeute. Da geht mehr."
+    : "Die Hühner lachen noch. Revanche?";
+  endScreen.classList.remove("hidden");
+}
+
+document.getElementById("startBtn").addEventListener("click", startGame);
+document.getElementById("againBtn").addEventListener("click", startGame);
+
+canvas.addEventListener("mousemove", e => { const p = toCanvas(e); mouse.x = p.x; mouse.y = p.y; });
+canvas.addEventListener("mousedown", e => {
+  const p = toCanvas(e); mouse.x = p.x; mouse.y = p.y;
+  if (e.button === 2) { reload(); return; }
+  shoot();
+});
+canvas.addEventListener("contextmenu", e => e.preventDefault());
+canvas.addEventListener("touchstart", e => {
+  e.preventDefault();
+  const p = toCanvas(e.touches[0]);
+  mouse.x = p.x; mouse.y = p.y;
+  Sound.init();
+  shoot();
+}, { passive: false });
+canvas.addEventListener("touchmove", e => {
+  e.preventDefault();
+  const p = toCanvas(e.touches[0]); mouse.x = p.x; mouse.y = p.y;
+}, { passive: false });
+
+window.addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  if (k === "r") reload();
+  else if (k === "p") {
+    if (state.mode === "playing") state.mode = "paused";
+    else if (state.mode === "paused") state.mode = "playing";
+  }
+  else if (k === "m") { Sound.on = !Sound.on; }
+  else if (e.code === "Space") {
+    e.preventDefault();
+    if (state.mode === "menu" || state.mode === "over") startGame(); else shoot();
+  }
+});
+
+/* ---------------- Loop ---------------- */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(dt);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
