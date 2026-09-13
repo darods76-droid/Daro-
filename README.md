@@ -5,12 +5,41 @@ Volumenkörper per Extrusion, normgerechte Ansichtsableitung mit verdeckten Kant
 und Export nach PDF, SVG und DXF. Mit installiertem **FreeCAD** kommen FCStd, STEP
 und STL dazu.
 
+## Schnellster Weg: eine Datei, ein Doppelklick
+
+**[DARO-CAD.html](DARO-CAD.html)** herunterladen und doppelklicken. Fertig.
+
+Kein Python, keine Installation, kein Server — die ganze App steckt in dieser einen
+Datei und läuft in jedem Browser. Zeichnen, bemaßen, extrudieren, Ansichten
+ableiten und der Export nach PDF, SVG und DXF funktionieren vollständig.
+
+> Nur FCStd, STEP und STL fehlen dort, denn dafür wird FreeCAD gebraucht. Diese
+> drei Einträge sind im Export-Menü ausgegraut.
+
+Zum Herunterladen: im Repository auf die Datei klicken, dann auf **Raw** bzw. den
+Download-Knopf — oder das ganze Projekt als ZIP laden und entpacken.
+
+## Voller Funktionsumfang: die Python-Fassung
+
 ```
 python3 -m daro_cad
 ```
 
 Mehr braucht es nicht — kein `pip install`, keine Fremdbibliotheken, nur Python 3.9
 oder neuer. Der Browser öffnet sich von selbst auf <http://127.0.0.1:8765/>.
+
+Wer kein Terminal mag, startet stattdessen per Doppelklick:
+
+| System | Datei |
+|---|---|
+| Windows | `START-Windows.bat` |
+| macOS, Linux | `START-Mac-Linux.command` |
+
+Die Starter suchen Python selbst und sagen verständlich Bescheid, falls es fehlt.
+
+Gegenüber der eigenständigen Datei kann diese Fassung zusätzlich: Zeichnungen in
+einem Ordner ablegen statt im Browser-Speicher, FCStd/STEP/STL über FreeCAD
+schreiben und FCStd/STEP einlesen.
 
 ---
 
@@ -185,17 +214,42 @@ web/                Zeichen-App (ES-Module, kein Framework)
   js/tools.js       Werkzeuge und Befehlsablauf
   js/modify.js      Stutzen, Runden, Versatz und die übrigen Änderungen
   js/view3d.js      3D-Vorschau
+  js/solid.js       Spiegel von solid.py
+  js/views.js       Spiegel von views.py
+  js/export-*.js    Spiegel von svg_export.py, dxf.py, pdf_export.py
+  js/import-dxf.js  DXF einlesen ohne Server
+  js/api.js         spricht den Python-Dienst an
+  js/api-local.js   rechnet alles im Browser (eigenständige Fassung)
   js/app.js         Zusammenspiel und Oberfläche
-tests/              53 Tests für den Kern
+build_standalone.py bündelt web/ zu DARO-CAD.html
+START-*.bat/.command  Starter zum Doppelklicken
+tests/              60 Tests für Kern und Browser-Fassung
 examples/           Beispielzeichnungen samt Erzeugungsskript
 ```
 
 **Warum manches doppelt vorkommt.** `primitives.py` und `prims.js` berechnen
-dasselbe. Das ist Absicht: Die Bemaßung auf dem Bildschirm muss Pixel für Pixel
-dem entsprechen, was später im PDF steht — ein Server-Rundlauf pro Mausbewegung
-wäre dafür zu träge. Damit die beiden nicht auseinanderlaufen, prüft die
-Testsuite die Zahlenwerte gegeneinander; beide liefern für dieselbe Bemaßung
-identische Pfeilspitzen, Textlagen und Maßzahlen.
+dasselbe, ebenso `solid.py`/`solid.js`, `views.py`/`views.js` und die drei
+Exporter. Das ist Absicht und hat zwei Gründe: Die Bemaßung auf dem Bildschirm
+muss dem entsprechen, was später im PDF steht — ein Server-Rundlauf pro
+Mausbewegung wäre dafür zu träge. Und nur so kommt die eigenständige HTML-Datei
+ganz ohne Python aus.
+
+Damit die beiden Seiten nicht auseinanderlaufen, vergleicht die Testsuite sie
+gegeneinander: `tests/test_web_parity.py` lässt dieselbe Zeichnung von Python und
+von Node.js exportieren und besteht nur, wenn SVG, DXF und PDF **byteweise
+gleich** sind. Ebenso werden Extrusion, jede einzelne projizierte Kante und der
+DXF-Import verglichen. Eine Abweichung von 0,1 mm an einer Pfeilspitze lässt die
+Tests fehlschlagen.
+
+**Die eigenständige Datei neu bauen:**
+
+```
+python3 build_standalone.py
+```
+
+Browser laden über `file://` keine einzelnen ES-Module nach; das Skript kapselt
+deshalb jedes Modul in eine Funktion und schreibt alles zusammen mit CSS und
+HTML in `DARO-CAD.html`.
 
 ### Zeichnungsformat
 
@@ -277,9 +331,11 @@ Klar benannt, damit niemand davon überrascht wird:
 python3 -m unittest discover -s tests -v
 ```
 
-53 Tests decken Geometrie, Dokumentformat, Bemaßung, Schriftfeld, alle drei
+60 Tests decken Geometrie, Dokumentformat, Bemaßung, Schriftfeld, alle drei
 Exporter samt DXF-Rundlauf, Extrusion, Ansichtsableitung, die HTTP-API und die
-Fehlerpfade der FreeCAD-Brücke ab.
+Fehlerpfade der FreeCAD-Brücke ab — dazu die byteweise Übereinstimmung zwischen
+Python-Kern und Browser-Fassung. Die Vergleichstests brauchen Node.js; fehlt es,
+werden sie übersprungen statt zu scheitern.
 
 Die Zeichen-App selbst wurde mit Playwright im Browser durchgefahren: Zeichnen mit
 Maus und Tastatur, Auswahl, Auflösen, Runden, Stutzen, Dehnen, Schraffur,

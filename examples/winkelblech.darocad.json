@@ -130,7 +130,7 @@
    ],
    "closed": true,
    "layer": "Kontur",
-   "id": "54ac4762cb10"
+   "id": "48090337d959"
   },
   {
    "type": "hatch",
@@ -207,7 +207,7 @@
    "angle": 45.0,
    "spacing": 3.0,
    "layer": "Schraffur",
-   "id": "1dbbc11ef748"
+   "id": "94977bf1412a"
   },
   {
    "type": "circle",
@@ -217,7 +217,7 @@
    ],
    "r": 3.5,
    "layer": "Kontur",
-   "id": "127b465b870b"
+   "id": "360b8b4914cd"
   },
   {
    "type": "line",
@@ -230,7 +230,7 @@
     114.0
    ],
    "layer": "Mittellinie",
-   "id": "49623cc646be"
+   "id": "df0742b0e963"
   },
   {
    "type": "line",
@@ -243,7 +243,7 @@
     121.5
    ],
    "layer": "Mittellinie",
-   "id": "c871790b4f52"
+   "id": "9577f309ac83"
   },
   {
    "type": "dim",
@@ -262,7 +262,7 @@
     120.0,
     90.0
    ],
-   "id": "3b1ba21a9c27",
+   "id": "2b747b0685e0",
    "h": 3.5,
    "prefix": "",
    "suffix": ""
@@ -285,7 +285,7 @@
     60.0,
     140.0
    ],
-   "id": "9a998c89299b",
+   "id": "aa8218d2322a",
    "h": 3.5,
    "prefix": "",
    "suffix": ""
@@ -308,7 +308,7 @@
     178.0,
     114.0
    ],
-   "id": "a33db23f7ae6",
+   "id": "a3217ae81886",
    "h": 3.5,
    "prefix": "",
    "suffix": ""
@@ -330,7 +330,7 @@
     162.0,
     144.0
    ],
-   "id": "83e71a0dbf65",
+   "id": "6adf9dcdd561",
    "h": 3.5,
    "prefix": "",
    "suffix": ""
@@ -352,7 +352,7 @@
     126.0,
     150.0
    ],
-   "id": "c5a4424d2fed",
+   "id": "e2fcd6155062",
    "h": 3.5,
    "prefix": "",
    "suffix": ""
@@ -378,7 +378,7 @@
     95.0,
     125.0
    ],
-   "id": "53e7f10c0a78",
+   "id": "ff2e05b61646",
    "h": 3.5,
    "prefix": "",
    "suffix": ""
@@ -393,7 +393,7 @@
    "align": "center",
    "layer": "Text",
    "text": "SCHNITT A-A",
-   "id": "520fe63365ca",
+   "id": "fed08fcb4819",
    "rot": 0.0
   }
  ],

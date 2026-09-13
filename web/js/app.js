@@ -667,13 +667,22 @@ class App {
         this.renderer.cache.clear();
         this.invalidate();
       }
-      badge.textContent = info.freecad.available
-        ? `FreeCAD verbunden${info.freecad.version ? " · " + String(info.freecad.version).slice(0, 22) : ""}`
-        : "FreeCAD nicht gefunden";
-      badge.className = "freecad-badge " + (info.freecad.available ? "ok" : "off");
-      badge.title = info.freecad.available
-        ? `${info.freecad.executable || "FreeCAD-Modul"} — FCStd, STEP und STL verfügbar`
-        : "Ohne FreeCAD stehen PDF, SVG, DXF und die eigene Ansichtsableitung zur Verfügung.";
+      if (info.standalone) {
+        // Eigenständige HTML-Fassung: rechnet vollständig im Browser
+        badge.textContent = "Eigenständige Fassung";
+        badge.className = "freecad-badge ok";
+        badge.title = "Läuft ohne Installation. PDF, SVG, DXF, Extrusion und " +
+          "Ansichtsableitung stehen zur Verfügung. FCStd, STEP und STL brauchen " +
+          "FreeCAD und die Python-Fassung.";
+      } else {
+        badge.textContent = info.freecad.available
+          ? `FreeCAD verbunden${info.freecad.version ? " · " + String(info.freecad.version).slice(0, 22) : ""}`
+          : "FreeCAD nicht gefunden";
+        badge.className = "freecad-badge " + (info.freecad.available ? "ok" : "off");
+        badge.title = info.freecad.available
+          ? `${info.freecad.executable || "FreeCAD-Modul"} — FCStd, STEP und STL verfügbar`
+          : "Ohne FreeCAD stehen PDF, SVG, DXF und die eigene Ansichtsableitung zur Verfügung.";
+      }
       for (const btn of document.querySelectorAll("#exportMenu [data-freecad]")) {
         btn.disabled = !info.freecad.available;
         btn.title = info.freecad.available ? "" : "FreeCAD ist nicht installiert.";

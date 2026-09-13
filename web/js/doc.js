@@ -111,7 +111,7 @@ export function polylineSegments(e) {
 export function outlinePoints(e) {
   switch (e.type) {
     case "line": return [e.a, e.b];
-    case "circle": return G.flattenArc(e.c, e.r, 0, 360, 48).slice(0, -1);
+    case "circle": return G.flattenArc(e.c, e.r, 0, 360, 0.05, 16).slice(0, -1);
     case "arc": return G.flattenArc(e.c, e.r, e.start, e.end);
     case "polyline": case "hatch": {
       const pts = [];

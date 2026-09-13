@@ -50,9 +50,20 @@ export function arcContains(start, end, deg) {
   return normAngle(deg - start) <= arcSweep(start, end) + 1e-7;
 }
 
-export function flattenArc(c, r, start, end, steps = 0) {
+/**
+ * Bogen in einen Polygonzug zerlegen.
+ *
+ * ``maxSagitta`` begrenzt den Stichmass-Fehler in mm, damit Exporte auch bei
+ * grossen Radien glatt bleiben. Gleiche Regel wie in daro_cad/geom.py, sonst
+ * wuerden Browser und Python-Kern unterschiedlich feine Boegen erzeugen.
+ */
+export function flattenArc(c, r, start, end, maxSagitta = 0.05, minSegments = 4) {
   const sweep = arcSweep(start, end);
-  const n = steps || Math.max(6, Math.ceil(sweep / 6));
+  if (r <= EPS) return [c, c];
+  const ratio = Math.max(0, Math.min(1, 1 - maxSagitta / r));
+  let step = ratio < 1 ? Math.acos(ratio) * 2 * 180 / Math.PI : 5;
+  step = Math.max(step, 0.5);
+  const n = Math.max(minSegments, Math.ceil(sweep / step));
   const out = [];
   for (let i = 0; i <= n; i++) out.push(arcPoint(c, r, start + sweep * i / n));
   return out;

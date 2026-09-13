@@ -1,0 +1,2 @@
+START-Windows.bat text eol=crlf
+START-Mac-Linux.command text eol=lf

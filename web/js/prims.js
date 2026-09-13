@@ -1,7 +1,7 @@
 // Bemassung, Schraffur und Schriftfeld als Zeichenprimitive.
 // Spiegelt daro_cad/primitives.py, damit Bildschirm und Export identisch sind.
 import * as G from "./geom.js";
-import { parseScale, sheetSize } from "./doc.js";
+import { parseScale, sheetSize, polylineSegments, outlinePoints } from "./doc.js";
 
 export const ARROW_LEN = 3.5, ARROW_W = 1.2, EXT_GAP = 0.8, EXT_OVER = 2.0,
   TEXT_GAP = 1.0, FRAME_LW = 0.7, SHEET_LW = 0.25;
@@ -201,6 +201,64 @@ export function hatchLines(pts, angleDeg, spacing) {
   return out;
 }
 
+// -- Entitäten -> Primitive -------------------------------------------------
+
+/** Eine Zeichnungsentität in Primitive auflösen (Spiegel von entity_primitives). */
+export function entityPrimitives(drawing, entity) {
+  const lay = drawing.layer(entity.layer) || { color: "#111", lineweight: 0.25,
+    linetype: "continuous" };
+  const color = entity.color || lay.color;
+  const lw = entity.lineweight ?? lay.lineweight;
+  const lt = entity.linetype || lay.linetype;
+  const scale = parseScale(drawing.meta.scale);
+  const comma = drawing.meta.decimalComma !== false;
+
+  switch (entity.type) {
+    case "line":
+      return [line(entity.a, entity.b, color, lw, lt)];
+    case "circle":
+      return [{ k: "circle", c: entity.c, r: entity.r, color, lw, lt }];
+    case "arc":
+      return [{ k: "arc", c: entity.c, r: entity.r, start: entity.start, end: entity.end,
+        color, lw, lt }];
+    case "polyline":
+      return polylineSegments(entity).map((seg) => seg.kind === "line"
+        ? line(seg.a, seg.b, color, lw, lt)
+        : { k: "arc", c: seg.c, r: seg.r, start: seg.start, end: seg.end, color, lw, lt });
+    case "text": {
+      const anchor = { left: "start", center: "middle", right: "end" }[entity.align || "left"]
+        || "start";
+      return [text(entity.p, entity.h, entity.text, color, entity.rot || 0, anchor, "base")];
+    }
+    case "point": {
+      const d = 1 / scale;
+      return [
+        line([entity.p[0] - d, entity.p[1]], [entity.p[0] + d, entity.p[1]], color, lw),
+        line([entity.p[0], entity.p[1] - d], [entity.p[0], entity.p[1] + d], color, lw),
+      ];
+    }
+    case "hatch":
+      return hatchLines(outlinePoints(entity), entity.angle ?? 45, (entity.spacing ?? 3) / scale)
+        .map(([a, b]) => line(a, b, color, lw, "continuous"));
+    case "dim":
+      return dimPrimitives(entity, color, lw, scale, comma);
+    default:
+      return [];
+  }
+}
+
+/** Alle druckbaren Elemente der Zeichnung als Primitive. */
+export function documentPrimitives(drawing, forPrint = true) {
+  const out = [];
+  for (const e of drawing.entities) {
+    const lay = drawing.layer(e.layer);
+    if (!lay || !lay.visible) continue;
+    if (forPrint && lay.printable === false) continue;
+    out.push(...entityPrimitives(drawing, e));
+  }
+  return out;
+}
+
 // -- Schriftfeld nach DIN EN ISO 7200 --------------------------------------
 
 const cell = (x, y, w, h, label, value, vh = 4, lh = 2) => ({ x, y, w, h, label, value, vh, lh });
@@ -266,20 +324,24 @@ export function sheetPrimitives(meta) {
     out.push(rect(x, y, c.w, c.h, SHEET_LW));
     if (c.label) {
       out.push(text(P(x + 1.2, y + c.h - c.lh - 0.8), c.lh / scale, c.label,
-        "#666666", 0, "start", "base"));
+        "#555555", 0, "start", "base"));
     }
     const value = String(c.value || "");
     if (value) {
       const vy = c.h <= 12 ? y + 1.6 : y + (c.h - c.vh) / 2;
       out.push(text(P(x + c.w / 2, vy), c.vh / scale, value, color, 0, "middle", "base"));
     }
-    if (c.label === "Projektion") {
-      const px = x + c.w / 2, py = y + c.h / 2 - 1;
-      for (const prim of projectionSymbol(px, py, 6, meta.projection === "first",
-        color, SHEET_LW)) {
-        out.push(scalePrim(prim, scale));
-      }
+  }
+
+  // Projektionssymbol zuletzt, damit es ueber dem Zellenraster liegt
+  for (const c of titleBlockCells(meta)) {
+    if (c.label !== "Projektion") continue;
+    const px = tbX + c.x + c.w / 2, py = tbY + c.y + c.h / 2 - 1;
+    for (const prim of projectionSymbol(px, py, 6, meta.projection === "first",
+      color, SHEET_LW)) {
+      out.push(scalePrim(prim, scale));
     }
+    break;
   }
   return out;
 }
