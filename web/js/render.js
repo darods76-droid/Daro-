@@ -1,7 +1,7 @@
 // Canvas-Renderer: Modellkoordinaten (mm, Y nach oben) -> Bildschirm.
 import * as G from "./geom.js";
 import * as P from "./prims.js";
-import { LINETYPES, polylineSegments, outlinePoints, parseScale } from "./doc.js";
+import { LINETYPES, polylineSegments, outlinePoints, parseScale, ellipsePoints } from "./doc.js";
 
 const GRID_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
 
@@ -254,8 +254,28 @@ export class Renderer {
         for (const [a, b] of this.hatchOf(e)) this.strokePath([a, b]);
         break;
       }
+      case "ellipse": {
+        const pts = ellipsePoints(e);
+        const closed = Math.abs((e.end ?? 360) - (e.start ?? 0)) >= 359.999;
+        this.strokePath(closed ? pts.slice(0, -1) : pts, closed);
+        break;
+      }
       case "dim": {
         for (const prim of this.dimOf(e)) this.prim(prim, boost, override);
+        break;
+      }
+      case "leader": case "surface": case "fcf": {
+        for (const prim of this.annoOf(e)) this.prim(prim, boost, override);
+        break;
+      }
+      case "insert": {
+        // Der Block wird mit den Layern seines Inhalts gezeichnet, damit er
+        // am Bildschirm genauso aussieht wie im PDF.
+        for (const sub of this.drawing.resolveInsert(e)) {
+          const lay = this.drawing.layer(sub.layer);
+          if (lay && lay.visible === false) continue;
+          this.entity(sub, override, boost, preview);
+        }
         break;
       }
     }
@@ -280,6 +300,19 @@ export class Renderer {
     if (!prims) {
       prims = P.dimPrimitives(e, e.color || layer.color, e.lineweight ?? layer.lineweight,
         this.scaleFactor, this.drawing.meta.decimalComma !== false);
+      this.cache.set(key, prims);
+    }
+    return prims;
+  }
+
+  /** Hinweislinie, Oberflaechenzeichen und Form-/Lagerahmen zwischenspeichern. */
+  annoOf(e) {
+    const layer = this.drawing.layer(e.layer) || { color: "#111", lineweight: 0.25 };
+    const key = "a:" + e.id + ":" + JSON.stringify([e, layer.color, layer.lineweight,
+      this.scaleFactor]);
+    let prims = this.cache.get(key);
+    if (!prims) {
+      prims = P.entityPrimitives(this.drawing, e);
       this.cache.set(key, prims);
     }
     return prims;
@@ -469,8 +502,13 @@ export function gripPoints(e) {
       G.arcPoint(e.c, e.r, 180), G.arcPoint(e.c, e.r, 270)];
     case "arc": return [e.c, G.arcPoint(e.c, e.r, e.start), G.arcPoint(e.c, e.r, e.end)];
     case "polyline": case "hatch": return e.pts;
-    case "text": case "point": return [e.p];
+    case "ellipse": return [e.c,
+      G.polar(e.c, e.rot || 0, e.rx), G.polar(e.c, (e.rot || 0) + 90, e.ry),
+      G.polar(e.c, (e.rot || 0) + 180, e.rx), G.polar(e.c, (e.rot || 0) + 270, e.ry)];
+    case "leader": return [e.p1, e.p2];
+    case "text": case "point": case "surface": case "fcf": return [e.p];
     case "dim": return [e.p1, e.p2, e.pos];
+    case "insert": return [e.p];
     default: return [];
   }
 }

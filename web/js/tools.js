@@ -2,7 +2,7 @@
 import * as G from "./geom.js";
 import * as M from "./modify.js";
 import * as P from "./prims.js";
-import { outlinePoints, newId } from "./doc.js";
+import { outlinePoints, newId, ellipsePoints } from "./doc.js";
 
 /** Koordinateneingabe: "100,50" | "@50,0" | "@100<45" | "100<45" */
 export function parsePoint(text, last) {
@@ -52,6 +52,44 @@ export function applyOrtho(from, to, mode) {
 // Werkzeugdefinitionen
 // ---------------------------------------------------------------------------
 
+/** Ellipse aus Mittelpunkt, Ende der Hauptachse und einem Punkt der Nebenachse. */
+function ellipseFrom(c, major, side) {
+  const rx = G.dist(c, major);
+  if (rx < 1e-9) return null;
+  const rot = G.angleOf(G.sub(major, c));
+  // Nebenhalbmesser ist der Abstand des dritten Punktes zur Hauptachse
+  const rel = G.sub(side, c);
+  const ry = Math.abs(G.cross(G.normalize(G.sub(major, c)), rel));
+  return { type: "ellipse", c, rx, ry: Math.max(ry, 1e-6), rot, start: 0, end: 360 };
+}
+
+/** Gleichseitiges Vieleck, einbeschrieben in den Kreis durch den Eckpunkt. */
+function polygonShape(center, corner, sides) {
+  const n = Math.max(3, Math.min(64, Math.round(sides || 6)));
+  const r = G.dist(center, corner);
+  const start = G.angleOf(G.sub(corner, center));
+  const pts = [];
+  for (let i = 0; i < n; i++) pts.push(G.polar(center, start + 360 * i / n, r));
+  return { type: "polyline", pts, closed: true };
+}
+
+/** Bogen durch drei Punkte -- der mittlere legt die Richtung fest. */
+function arcFrom3(a, b, c) {
+  const d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]));
+  if (Math.abs(d) < 1e-12) return null;          // die drei Punkte liegen auf einer Geraden
+  const sq = (p) => p[0] * p[0] + p[1] * p[1];
+  const ux = (sq(a) * (b[1] - c[1]) + sq(b) * (c[1] - a[1]) + sq(c) * (a[1] - b[1])) / d;
+  const uy = (sq(a) * (c[0] - b[0]) + sq(b) * (a[0] - c[0]) + sq(c) * (b[0] - a[0])) / d;
+  const centre = [ux, uy];
+  const r = G.dist(centre, a);
+  let start = G.angleOf(G.sub(a, centre));
+  let end = G.angleOf(G.sub(c, centre));
+  const mid = G.angleOf(G.sub(b, centre));
+  // Laeuft der Bogen gegen den Uhrzeigersinn ueber den mittleren Punkt?
+  if (!G.arcContains(start, end, mid)) { const t = start; start = end; end = t; }
+  return { type: "arc", c: centre, r, start, end };
+}
+
 /** Zweiten Eckpunkt so verschieben, dass ein Quadrat entsteht. */
 function squareCorner(a, p) {
   const dx = p[0] - a[0], dy = p[1] - a[1];
@@ -95,7 +133,9 @@ const dimTool = (kind, label, extra = {}) => ({
   build: (s) => {
     const [p1, p2, pos] = s.pts;
     return [{ type: "dim", kind, p1, p2, pos, h: s.app.textHeight,
-      decimals: s.app.dimDecimals, ...(extra.fields ? extra.fields(s) : {}) }];
+      decimals: s.app.dimDecimals, tolMode: s.app.tolMode,
+      tolUpper: s.app.tolUpper, tolLower: s.app.tolLower, fit: s.app.fit,
+      ...(extra.fields ? extra.fields(s) : {}) }];
   },
   ...extra,
 });
@@ -178,6 +218,52 @@ export const TOOLS = {
     },
   },
 
+  ellipse: {
+    label: "Ellipse", group: "Zeichnen", picks: 3,
+    hints: ["Mittelpunkt", "Ende der Hauptachse", "Nebenachse"],
+    build: (s) => {
+      const e = ellipseFrom(s.pts[0], s.pts[1], s.pts[2]);
+      return e ? [e] : [];
+    },
+    preview(s, p) {
+      if (s.pts.length === 1) {
+        return [{ type: "line", a: s.pts[0], b: p, layer: "Hilfslinie" }];
+      }
+      if (s.pts.length === 2) {
+        const e = ellipseFrom(s.pts[0], s.pts[1], p);
+        return e ? [{ ...e, layer: s.layer() }] : [];
+      }
+      return [];
+    },
+  },
+
+  polygon: {
+    label: "Vieleck", group: "Zeichnen", picks: 2,
+    hints: ["Mittelpunkt", "Eckpunkt (Seitenzahl in den Einstellungen)"],
+    build: (s) => [polygonShape(s.pts[0], s.pts[1], s.app.polygonSides)],
+    preview(s, p) {
+      if (!s.pts.length) return [];
+      return [{ ...polygonShape(s.pts[0], p, s.app.polygonSides), layer: s.layer() }];
+    },
+  },
+
+  arc3: {
+    label: "Bogen 3-Punkt", group: "Zeichnen", picks: 3,
+    hints: ["Startpunkt", "Punkt auf dem Bogen", "Endpunkt"],
+    build: (s) => {
+      const a = arcFrom3(s.pts[0], s.pts[1], s.pts[2]);
+      return a ? [a] : [];
+    },
+    preview(s, p) {
+      if (s.pts.length === 1) return [{ type: "line", a: s.pts[0], b: p, layer: "Hilfslinie" }];
+      if (s.pts.length === 2) {
+        const a = arcFrom3(s.pts[0], s.pts[1], p);
+        return a ? [{ ...a, layer: s.layer() }] : [];
+      }
+      return [];
+    },
+  },
+
   point: { label: "Punkt", group: "Zeichnen", picks: 1, hints: ["Position"],
     build: (s) => [{ type: "point", p: s.pts[0] }] },
 
@@ -238,6 +324,125 @@ export const TOOLS = {
     },
   },
 
+  leader: {
+    label: "Hinweislinie", group: "Bemassung", layer: "Text", picks: 2,
+    hints: ["Worauf zeigen?", "Textlage"],
+    build: (s) => {
+      const value = s.app.askText("Text der Hinweislinie:", s.app.lastLeaderText || "");
+      if (!value) return [];
+      s.app.lastLeaderText = value;
+      return [{ type: "leader", p1: s.pts[0], p2: s.pts[1], text: value,
+        h: s.app.textHeight }];
+    },
+    preview(s, p) {
+      if (!s.pts.length) return [];
+      return [{ type: "leader", p1: s.pts[0], p2: p, text: "Abc",
+        h: s.app.textHeight, layer: s.layer() }];
+    },
+  },
+
+  surface: {
+    label: "Oberfläche", group: "Bemassung", layer: "Text", picks: 1,
+    hints: ["Auf welche Fläche zeigen?"],
+    build: (s) => [{ type: "surface", p: s.pts[0], h: s.app.textHeight,
+      kind: s.app.surfaceKind, value: s.app.surfaceValue }],
+    preview(s, p) {
+      return [{ type: "surface", p, h: s.app.textHeight, kind: s.app.surfaceKind,
+        value: s.app.surfaceValue, layer: s.layer() }];
+    },
+  },
+
+  fcf: {
+    label: "Form & Lage", group: "Bemassung", layer: "Text", picks: 1,
+    hints: ["Lage des Rahmens"],
+    build: (s) => [{ type: "fcf", p: s.pts[0], h: s.app.textHeight,
+      sym: s.app.fcfSymbol, tol: s.app.fcfTolerance,
+      datums: String(s.app.fcfDatums || "").split(/[ ,]+/).filter(Boolean) }],
+    preview(s, p) {
+      return [{ type: "fcf", p, h: s.app.textHeight, sym: s.app.fcfSymbol,
+        tol: s.app.fcfTolerance,
+        datums: String(s.app.fcfDatums || "").split(/[ ,]+/).filter(Boolean),
+        layer: s.layer() }];
+    },
+  },
+
+  array: {
+    label: "Reihe", group: "Aendern", needsSelection: true,
+    hints: ["Einstellungen prüfen, dann Enter"],
+    picks: 1,
+    finish(s) {
+      const app = s.app;
+      const opts = app.arrayKind === "polar"
+        ? { kind: "polar", count: app.arrayCount, total: 360,
+            center: s.pts[0] || app.cursor }
+        : { kind: "rect", cols: app.arrayCols, rows: app.arrayRows,
+            dx: app.arrayDx, dy: app.arrayDy };
+      const copies = M.array(s.selectedEntities(), opts);
+      if (!copies.length) { app.toast("Die Reihe ergibt keine Kopien."); return true; }
+      for (const e of copies) s.addEntity(e);
+      s.commit("Reihe");
+      app.toast(`${copies.length} Kopien erzeugt.`);
+      return true;
+    },
+    onPoint(s) {
+      // Bei der Rundreihe ist der erste Klick der Drehpunkt
+      if (s.app.arrayKind === "polar") s.finish();
+    },
+    hintFor(s) {
+      return s.app.arrayKind === "polar" ? "Drehpunkt anklicken" : "Enter drücken";
+    },
+  },
+
+  blockmake: {
+    label: "Block erstellen", group: "Bloecke", needsSelection: true,
+    picks: 1, hints: ["Basispunkt anklicken"],
+    finish(s) {
+      const app = s.app;
+      const chosen = s.selectedEntities();
+      const name = (app.blockName || "").trim();
+      if (!name) { app.toast("Bitte oben einen Namen für den Block eintragen."); return true; }
+      if (!chosen.length) { app.toast("Erst Elemente auswählen."); return true; }
+      const base = s.pts[0] || app.cursor || [0, 0];
+      if (chosen.some((e) => e.type === "insert" && e.name === name)) {
+        app.toast("Ein Block kann sich nicht selbst enthalten."); return true;
+      }
+      s.drawing.defineBlock(name, chosen, base);
+      s.drawing.remove(chosen.map((e) => e.id));
+      const ins = s.addEntity({ type: "insert", name, p: base, rot: 0, scale: 1,
+        layer: chosen[0].layer });
+      app.selection = new Set([ins.id]);
+      s.commit("Block erstellen");
+      app.refreshBlocks();
+      app.toast(`Block „${name}" aus ${chosen.length} Elementen erstellt.`);
+      return true;
+    },
+    // Der Klick auf den Basispunkt schliesst das Werkzeug ab
+    onPoint(s) { s.finish(); },
+  },
+
+  blockinsert: {
+    label: "Block einfügen", group: "Bloecke", picks: 1, repeat: true,
+    hints: ["Einfügepunkt anklicken"],
+    onStart(s) {
+      // Ohne Symbole waere das Werkzeug wirkungslos -- dann Bibliothek holen
+      if (s.app.stockBlocks()) s.app.toast("Symbole geladen — eins oben auswählen.");
+    },
+    build(s) {
+      const app = s.app;
+      const name = app.blockPick;
+      if (!name || !s.drawing.blocks[name]) return null;
+      return [{ type: "insert", name, p: s.pts[0], rot: app.blockRot || 0,
+        scale: app.blockScale || 1 }];
+    },
+    preview(s, p) {
+      const app = s.app;
+      const name = app.blockPick;
+      if (!name || !s.drawing.blocks[name]) return null;
+      return [{ type: "insert", name, p, rot: app.blockRot || 0,
+        scale: app.blockScale || 1, layer: s.drawing.activeLayer }];
+    },
+  },
+
   measure: {
     label: "Messen", group: "Allgemein", picks: 2, hints: ["Von", "Nach"],
     build: (s) => {
@@ -254,6 +459,21 @@ export const TOOLS = {
       return { entities: [], hints: [{ k: "line", a, b: p },
         { k: "label", p, text: `${P.formatValue(G.dist(a, p), 2)} mm  /  ` +
           `${P.formatValue(G.angleOf(G.sub(p, a)), 1)}°` }] };
+    },
+  },
+
+  measurearea: {
+    label: "Fläche messen", group: "Allgemein", pickEntities: 1,
+    hints: ["Geschlossene Kontur wählen"],
+    onEntities(s, entities) {
+      const pts = outlinePoints(entities[0]);
+      if (pts.length < 3) { s.app.toast("Das ist keine geschlossene Kontur."); return true; }
+      const area = Math.abs(G.signedArea(pts));
+      let umfang = 0;
+      for (let i = 0; i < pts.length; i++) umfang += G.dist(pts[i], pts[(i + 1) % pts.length]);
+      s.app.toast(`Fläche ${P.formatValue(area, 1)} mm² ` +
+        `(${P.formatValue(area / 100, 2)} cm²)   Umfang ${P.formatValue(umfang, 1)} mm`, 9000);
+      return true;
     },
   },
 
@@ -415,8 +635,9 @@ export const TOOLS = {
     finish(s) {
       let count = 0;
       for (const e of s.selectedEntities()) {
-        const parts = M.explode(e);
-        if (!parts) continue;
+        // Ein Blockverweis wird zu den Elementen, die er darstellt
+        const parts = e.type === "insert" ? s.drawing.resolveInsert(e) : M.explode(e);
+        if (!parts || !parts.length) continue;
         s.drawing.remove([e.id]);
         for (const part of parts) s.addEntity(part);
         count += parts.length;
@@ -426,7 +647,7 @@ export const TOOLS = {
         s.commit("Auflösen");
         s.app.toast(`In ${count} Einzelelemente aufgelöst.`);
       } else {
-        s.app.toast("Nur Polylinien und Kreise lassen sich auflösen.");
+        s.app.toast("Auflösen geht bei Polylinien, Kreisen und Blöcken.");
       }
       return true;
     },
@@ -462,7 +683,7 @@ export const TOOLS = {
   },
 };
 
-export const TOOL_GROUPS = ["Allgemein", "Zeichnen", "Bemassung", "Aendern"];
+export const TOOL_GROUPS = ["Allgemein", "Zeichnen", "Bemassung", "Bloecke", "Aendern"];
 
 // ---------------------------------------------------------------------------
 // Ablaufsteuerung
@@ -494,6 +715,7 @@ export class Session {
     this.name = name;
     this.tool = tool;
     this.opts = { ...opts };
+    if (tool.onStart) tool.onStart(this);
     if (tool.needsSelection && !this.app.selection.size) {
       this.phase = "select";
       this.prompt("Objekte wählen, dann Enter");
@@ -539,8 +761,9 @@ export class Session {
   }
 
   addEntity(entity) {
-    this.drawing.entities.push({ id: entity.id || newId(),
-      layer: entity.layer || this.layer(), ...entity });
+    const e = { id: entity.id || newId(), layer: entity.layer || this.layer(), ...entity };
+    this.drawing.entities.push(e);
+    return e;
   }
 
   commit(label) {
@@ -549,7 +772,7 @@ export class Session {
   }
 
   selectedEntities() {
-    return [...this.app.selection].map((id) => this.drawing.byId(id)).filter(Boolean);
+    return this.app.selectedEntities();
   }
 
   replaceSelection(fn) {

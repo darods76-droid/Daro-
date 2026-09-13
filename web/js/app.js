@@ -1,10 +1,14 @@
 // DARO-CAD -- Zusammenspiel von Zeichenflaeche, Werkzeugen und Python-Kern.
 import * as G from "./geom.js";
 import * as API from "./api.js";
-import { Drawing, SCALES, SHEETS, entityBBox, distanceTo } from "./doc.js";
+import { Drawing, SCALES, SHEETS, entityBBox, distanceTo,
+         FCF_SYMBOLS, FCF_LABELS } from "./doc.js";
 import { Renderer } from "./render.js";
 import { Session, TOOLS, TOOL_GROUPS, parsePoint, applyOrtho } from "./tools.js";
 import { findSnap, DEFAULT_SNAPS } from "./snap.js";
+import { findGrip, applyGrip, gripHint } from "./grips.js";
+import * as AI from "./ai.js";
+import { installLibrary } from "./blocks.js";
 import { View3D } from "./view3d.js";
 import * as P from "./prims.js";
 
@@ -19,6 +23,8 @@ const ICONS = {
   dimangular: "∠", dimradius: "⌀", measure: "⟺", move: "✥", copy: "⧉",
   rotate: "↻", mirror: "⇄", scale: "⤡", offset: "⇉", trim: "✂", extend: "⇥",
   fillet: "◟", chamfer: "◺", explode: "⁂", erase: "␡", square: "□",
+  ellipse: "⬭", polygon: "⬡", arc3: "◠", leader: "↗", surface: "√",
+  fcf: "⊕", array: "⣿", measurearea: "▦",
 };
 
 const COMMANDS = {
@@ -31,14 +37,19 @@ const COMMANDS = {
   drehen: "rotate", d: "rotate", spiegeln: "mirror", sp: "mirror",
   skalieren: "scale", versatz: "offset", o: "offset", stutzen: "trim", s: "trim",
   dehnen: "extend", e: "extend", runden: "fillet", f: "fillet", fasen: "chamfer",
-  quadrat: "square", q: "square",
+  quadrat: "square", q: "square", ellipse: "ellipse", el: "ellipse",
+  vieleck: "polygon", pg: "polygon", bogen3: "arc3",
+  hinweislinie: "leader", hl: "leader", oberflaeche: "surface",
+  "oberfläche": "surface", formlage: "fcf", reihe: "array",
+  flaeche: "measurearea", "fläche": "measurearea",
   auswahl: "select", esc: "select", aufloesen: "explode", "auflösen": "explode",
   loeschen: "erase", "löschen": "erase",
 };
 
 // Auf schmalen Geraeten zuerst das, womit man tatsaechlich anfaengt.
-const COMPACT_ORDER = ["line", "rect", "square", "circle", "arc", "text",
-  "select", "erase", "move", "polyline", "hatch", "dimlinear", "measure"];
+const COMPACT_ORDER = ["line", "rect", "square", "circle", "ellipse", "polygon",
+  "arc", "text", "select", "erase", "move", "polyline", "hatch", "dimlinear",
+  "leader", "blockinsert", "measure"];
 
 class App {
   constructor() {
@@ -57,6 +68,7 @@ class App {
     this.freecad = { available: false };
     this.compact = null;              // wird von applyLayout() gesetzt
     this.shiftKey = false;
+    this.grip = null;                 // laufender Griff-Zug
 
     // Zeicheneinstellungen (aus der Seitenleiste)
     this.textHeight = 3.5;
@@ -68,6 +80,27 @@ class App {
     this.hatchSpacing = 3;
     this.gridSnapStep = 10;
     this.diameterInput = false;
+    this.polygonSides = 6;
+    this.surfaceKind = "machined";
+    this.surfaceValue = "Ra 3,2";
+    this.fcfSymbol = "Position";
+    this.fcfTolerance = "0,1";
+    this.fcfDatums = "A";
+    this.tolMode = "none";
+    this.tolUpper = 0.1;
+    this.tolLower = -0.1;
+    this.fit = "H7";
+    this.arrayKind = "rect";
+    this.arrayCols = 3;
+    this.arrayRows = 2;
+    this.arrayDx = 50;
+    this.arrayDy = 40;
+    this.arrayCount = 6;
+    this.blockPick = "";
+    this.blockRot = 0;
+    this.blockScale = 1;
+    this.blockName = "";
+    this.sample = null;               // KI-Helfer, falls verfuegbar
 
     this.applyLayout();               // legt auch die Werkzeugleiste an
     this.buildSelects();
@@ -80,6 +113,7 @@ class App {
       this.invalidate();
       this.renderLayers();
       this.renderProps();
+      this.refreshBlocks();
     });
 
     window.addEventListener("resize", () => {
@@ -92,9 +126,11 @@ class App {
     this.loop();
     this.checkStatus();
     this.renderLayers();
+    this.refreshBlocks();
     this.syncMeta();
     this.setPrompt("");
     this.setupWelcome();
+    this.setupAi();
   }
 
   // -- Startbildschirm -----------------------------------------------------
@@ -223,7 +259,8 @@ class App {
       if (!names.length) continue;
       const title = document.createElement("h5");
       title.textContent = group === "Aendern" ? "Ändern"
-        : group === "Bemassung" ? "Bemaßung" : group;
+        : group === "Bemassung" ? "Bemaßung"
+          : group === "Bloecke" ? "Blöcke" : group;
       host.appendChild(title);
       for (const name of names) host.appendChild(this.toolButton(name));
     }
@@ -256,6 +293,12 @@ class App {
     const sheet = document.getElementById("metaSheet");
     sheet.innerHTML = Object.keys(SHEETS)
       .map((s) => `<option value="${s}">${s === "A4L" ? "A4 quer" : s}</option>`).join("");
+    const fcf = document.getElementById("optFcfSymbol");
+    if (fcf) {
+      fcf.innerHTML = FCF_SYMBOLS
+        .map((n) => `<option value="${n}">${FCF_LABELS[n] || n}</option>`).join("");
+      fcf.value = this.fcfSymbol;
+    }
     const scale = document.getElementById("metaScale");
     scale.innerHTML = SCALES.map((s) => `<option value="${s}">${s}</option>`).join("");
   }
@@ -277,8 +320,23 @@ class App {
   }
 
   startDrawing() {
+    this.stockBlocks();
     this.renderer.zoomSheet();
     this.invalidate();
+  }
+
+  /**
+   * Die Symbolbibliothek in eine frische Zeichnung legen.
+   *
+   * Kein Rueckgaengig-Schritt: die Symbole gehoeren zum Ausgangszustand, sonst
+   * wuerde das erste „Rückgängig" sie wieder entfernen.
+   */
+  stockBlocks() {
+    if (Object.keys(this.drawing.blocks).length) return 0;
+    const added = installLibrary(this.drawing);
+    this.drawing.lastState = this.drawing.snapshot();
+    this.refreshBlocks();
+    return added;
   }
 
   // -- Zeigereingaben ------------------------------------------------------
@@ -338,6 +396,19 @@ class App {
       const p = this.resolvePoint(raw);
       if (e.button === 2) { this.session.finish(); this.invalidate(); return; }
       downPoint = p;
+
+      // Griff gefasst? Dann ziehen statt neu auswaehlen.
+      if (this.session.name === "select" && this.selection.size) {
+        const hit = findGrip(this.selectedEntities(), p, this.renderer.px(9));
+        if (hit) {
+          this.grip = { id: hit.entity.id, index: hit.index,
+                        before: JSON.parse(JSON.stringify(hit.entity)) };
+          this.setPrompt(gripHint(hit.entity, hit.index) + " ziehen");
+          c.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
+
       if (this.session.phase === "select" || this.session.name === "select") {
         windowStart = p;
       }
@@ -359,6 +430,8 @@ class App {
       this.cursor = p;
       document.getElementById("coords").textContent =
         `${p[0].toFixed(2)}, ${p[1].toFixed(2)}`;
+
+      if (this.grip) { this.dragGrip(p); return; }
 
       if (windowStart && G.dist(windowStart, p) > this.renderer.px(4)) {
         this.renderer.preview = { entities: [], hints: [{ k: "rect",
@@ -390,6 +463,7 @@ class App {
       const wasGesture = gestureActive;
       endPointer(e);
       if (wasGesture) return;          // Ende einer Geste setzt keinen Punkt
+      if (this.grip) { this.endGrip(); return; }
       if (panning && e.button === 1) { panning = false; return; }
       if (e.button !== 0) return;
       const raw = modelAt(e);
@@ -444,6 +518,40 @@ class App {
     });
   }
 
+  /** Die ausgewaehlten Elemente als Objekte. */
+  selectedEntities() {
+    return [...this.selection].map((id) => this.drawing.byId(id)).filter(Boolean);
+  }
+
+  /** Gefassten Griff auf die neue Lage ziehen. */
+  dragGrip(point) {
+    const idx = this.drawing.entities.findIndex((e) => e.id === this.grip.id);
+    if (idx < 0) { this.grip = null; return; }
+    const updated = applyGrip(this.drawing.entities[idx], this.grip.index, point);
+    this.drawing.entities[idx] = { ...updated, id: this.grip.id };
+    this.renderer.cache.clear();
+    this.invalidate();
+  }
+
+  /** Zug beenden -- ein Schritt im Rueckgaengig-Speicher. */
+  endGrip() {
+    const idx = this.drawing.entities.findIndex((e) => e.id === this.grip.id);
+    const after = idx >= 0 ? this.drawing.entities[idx] : null;
+    const unchanged = after &&
+      JSON.stringify(after) === JSON.stringify(this.grip.before);
+    if (after && !unchanged) {
+      // Fuer den Rueckgaengig-Speicher kurz den Ausgangszustand herstellen
+      this.drawing.entities[idx] = this.grip.before;
+      this.drawing.lastState = this.drawing.snapshot();
+      this.drawing.entities[idx] = after;
+      this.drawing.commit("Griff ziehen");
+    }
+    this.grip = null;
+    this.setPrompt("");
+    this.renderProps();
+    this.invalidate();
+  }
+
   /** Fang und Ortho auf einen Rohpunkt anwenden. */
   resolvePoint(raw) {
     const tol = this.renderer.px(12);
@@ -452,7 +560,7 @@ class App {
     if (this.orthoMode !== "off" && last) p = applyOrtho(last, p, this.orthoMode);
 
     const snap = this.snapEnabled
-      ? findSnap(this.drawing.visible(), p, {
+      ? findSnap(this.drawing.snapTargets(), p, {
         tolerance: tol, snaps: this.snaps, from: last,
         gridStep: this.gridSnapStep, enabled: this.snapEnabled })
       : null;
@@ -464,10 +572,10 @@ class App {
     const tol = this.renderer.px(7);
     let best = null, bestD = Infinity;
     for (const e of this.drawing.selectable()) {
-      const box = entityBBox(e);
+      const box = entityBBox(e, this.drawing);
       if (box && (p[0] < box[0] - tol || p[0] > box[2] + tol ||
                   p[1] < box[1] - tol || p[1] > box[3] + tol)) continue;
-      const d = distanceTo(e, p);
+      const d = distanceTo(e, p, this.drawing);
       if (d <= tol && d < bestD) { bestD = d; best = e; }
     }
     return best;
@@ -479,7 +587,7 @@ class App {
     const crossing = b[0] < a[0];
     if (!additive) this.selection.clear();
     for (const e of this.drawing.selectable()) {
-      const eb = entityBBox(e);
+      const eb = entityBBox(e, this.drawing);
       if (!eb) continue;
       const hit = crossing ? G.bboxOverlap(eb, box) : G.bboxInside(eb, box);
       if (hit) this.selection.add(e.id);
@@ -654,6 +762,46 @@ class App {
     bindNumber("optGrid", "gridSnapStep");
     bindNumber("optHatchAngle", "hatchAngle");
     bindNumber("optHatchSpacing", "hatchSpacing");
+    bindNumber("optPolygonSides", "polygonSides");
+    bindNumber("optTolUpper", "tolUpper");
+    bindNumber("optTolLower", "tolLower");
+    bindNumber("optArrayCols", "arrayCols");
+    bindNumber("optArrayRows", "arrayRows");
+    bindNumber("optArrayDx", "arrayDx");
+    bindNumber("optArrayDy", "arrayDy");
+    bindNumber("optArrayCount", "arrayCount");
+    bindNumber("optBlockRot", "blockRot");
+    bindNumber("optBlockScale", "blockScale");
+
+    const bindValue = (id, key) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("change", () => { this[key] = el.value; this.invalidate(); });
+    };
+    bindValue("optSurfaceKind", "surfaceKind");
+    bindValue("optSurfaceValue", "surfaceValue");
+    bindValue("optFcfSymbol", "fcfSymbol");
+    bindValue("optFcfTolerance", "fcfTolerance");
+    bindValue("optFcfDatums", "fcfDatums");
+    bindValue("optTolMode", "tolMode");
+    bindValue("optFit", "fit");
+    bindValue("optArrayKind", "arrayKind");
+    bindValue("optBlockPick", "blockPick");
+    bindValue("optBlockName", "blockName");
+
+    const libBtn = document.getElementById("btnBlockLibrary");
+    if (libBtn) {
+      libBtn.onclick = () => {
+        const added = installLibrary(this.drawing);
+        if (added) this.drawing.commit("Symbolbibliothek");
+        this.refreshBlocks();
+        this.toast(added ? `${added} Symbole stehen bereit — Werkzeug „Block einfügen".`
+          : "Die Symbole sind bereits geladen.");
+      };
+    }
+
+    document.getElementById("btnAiDraw").onclick = () => this.runAi("draw");
+    document.getElementById("btnAiAsk").onclick = () => this.runAi("ask");
 
     document.getElementById("activeLayer").addEventListener("change", (e) => {
       this.drawing.activeLayer = e.target.value;
@@ -791,6 +939,20 @@ class App {
     }
   }
 
+  /** Die Auswahlliste der Bloecke an den Stand der Zeichnung anpassen. */
+  refreshBlocks() {
+    const select = document.getElementById("optBlockPick");
+    if (!select) return;
+    const names = this.drawing.blockNames();
+    const key = names.join("\u0000");
+    if (key !== this._blockKey) this._blockKey = key; else return;
+    select.innerHTML = names.length
+      ? names.map((n) => `<option value="${n}">${n}</option>`).join("")
+      : '<option value="">— noch keine Blöcke —</option>';
+    if (!names.includes(this.blockPick)) this.blockPick = names[0] || "";
+    select.value = this.blockPick;
+  }
+
   renderProps() {
     const host = document.getElementById("propsBody");
     const ids = [...this.selection];
@@ -886,6 +1048,79 @@ class App {
     }
   }
 
+  // -- KI-Helfer -----------------------------------------------------------
+
+  /** Pruefen, ob der Helfer in dieser Ansicht laeuft, und den Reiter zeigen. */
+  async setupAi() {
+    this.sample = await AI.available();
+    const tab = document.getElementById("tabAi");
+    if (tab) tab.hidden = !this.sample;
+  }
+
+  aiLog(role, text, kind = "") {
+    const host = document.getElementById("aiLog");
+    if (!host) return null;
+    const el = document.createElement("div");
+    el.className = "ai-msg " + (kind || (role === "Du" ? "me" : ""));
+    el.innerHTML = `<b>${role}</b>`;
+    const body = document.createElement("span");
+    body.textContent = text;
+    el.appendChild(body);
+    host.appendChild(el);
+    host.scrollTop = host.scrollHeight;
+    return body;
+  }
+
+  async runAi(mode) {
+    const field = document.getElementById("aiPrompt");
+    const wunsch = field.value.trim();
+    if (!wunsch) { this.toast("Bitte zuerst beschreiben, was gebraucht wird."); return; }
+    if (!this.sample) { this.toast("Der Helfer ist in dieser Fassung nicht verfügbar."); return; }
+
+    this.aiLog("Du", wunsch);
+    field.value = "";
+    const warten = this.aiLog("Helfer", "Denkt nach …");
+
+    try {
+      if (mode === "ask") {
+        await AI.ask(this.sample, wunsch, this.drawing,
+          ({ text }) => { warten.textContent = text; });
+        return;
+      }
+
+      const res = await AI.draw(this.sample, wunsch, this.drawing);
+      if (!res.entities.length) {
+        warten.parentElement.className = "ai-msg err";
+        warten.textContent = "Daraus konnte ich nichts Gültiges erzeugen." +
+          (res.reasons.length ? "\nGrund: " + res.reasons.slice(0, 3).join("; ") : "");
+        return;
+      }
+
+      const ids = [];
+      for (const e of res.entities) ids.push(this.drawing.add(e, e.layer).id);
+      this.drawing.commit("KI-Helfer");
+      this.selection = new Set(ids);
+      this.renderProps();
+      this.renderer.zoomExtents();
+      this.invalidate();
+
+      let text = `${res.entities.length} Elemente eingefügt und ausgewählt.`;
+      if (res.note) text += "\n" + res.note;
+      const verworfen = res.reasons.length;
+      if (verworfen) text += `\n${verworfen} Vorschläge wurden verworfen: ` +
+        res.reasons.slice(0, 3).join("; ");
+      warten.textContent = text;
+    } catch (err) {
+      warten.parentElement.className = "ai-msg err";
+      const code = err && err.code;
+      warten.textContent = code === "not_granted"
+        ? "Ohne Einverständnis kann der Helfer nicht antworten."
+        : code === "rate_limited"
+          ? "Zu viele Anfragen kurz hintereinander. Bitte einen Moment warten."
+          : (err.message || "Der Helfer konnte nicht antworten.");
+    }
+  }
+
   // -- Dateien und Export --------------------------------------------------
 
   async checkStatus() {
@@ -930,6 +1165,7 @@ class App {
     if (this.drawing.entities.length &&
         !confirm("Neue Zeichnung beginnen? Nicht gespeicherte Änderungen gehen verloren.")) return;
     this.drawing.load({ meta: {}, layers: null, entities: [] });
+    this.stockBlocks();
     this.selection.clear();
     this.solids = [];
     this.view3d.setSolids([]);

@@ -1,6 +1,6 @@
 // Objektfang: Endpunkt, Mitte, Zentrum, Quadrant, Schnittpunkt, Lot, Naechster.
 import * as G from "./geom.js";
-import { polylineSegments, outlinePoints } from "./doc.js";
+import { polylineSegments, outlinePoints, ellipsePoints } from "./doc.js";
 
 export const SNAP_LABELS = {
   endpoint: "Endpunkt", midpoint: "Mittelpunkt", center: "Zentrum",
@@ -29,15 +29,42 @@ export function primitivesOf(e) {
       const pts = outlinePoints(e);
       return pts.map((p, i) => ({ kind: "line", a: p, b: pts[(i + 1) % pts.length] }));
     }
+    case "ellipse": {
+      // Der Umriss ist ein Streckenzug; seine Zwischenpunkte sind aber keine
+      // Endpunkte der Ellipse, deshalb `noEnds`. Mittelpunkt und die vier
+      // Achsenenden kommen als eigene Fangmarken dazu.
+      const pts = ellipsePoints(e);
+      const out = [];
+      const chain = "e" + (e.id ?? "");
+      for (let i = 1; i < pts.length; i++) {
+        out.push({ kind: "line", a: pts[i - 1], b: pts[i], noEnds: true, chain });
+      }
+      const rot = e.rot || 0;
+      const marks = [{ p: e.c, kind: "center" }];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        marks.push({ p: G.rotate(G.add(e.c, [dx * e.rx, dy * e.ry]), rot, e.c),
+          kind: "quadrant" });
+      }
+      out.push({ kind: "marks", marks, box: G.bbox(pts) });
+      return out;
+    }
     default: return [];
   }
 }
 
 function candidatesFor(prim, kinds) {
   const out = [];
+  if (prim.kind === "marks") {
+    for (const m of prim.marks) if (kinds[m.kind]) out.push(m);
+    return out;
+  }
   if (prim.kind === "line") {
-    if (kinds.endpoint) out.push({ p: prim.a, kind: "endpoint" }, { p: prim.b, kind: "endpoint" });
-    if (kinds.midpoint) out.push({ p: G.lerp(prim.a, prim.b, 0.5), kind: "midpoint" });
+    if (kinds.endpoint && !prim.noEnds) {
+      out.push({ p: prim.a, kind: "endpoint" }, { p: prim.b, kind: "endpoint" });
+    }
+    if (kinds.midpoint && !prim.noEnds) {
+      out.push({ p: G.lerp(prim.a, prim.b, 0.5), kind: "midpoint" });
+    }
   } else if (prim.kind === "circle") {
     if (kinds.center) out.push({ p: prim.c, kind: "center" });
     if (kinds.quadrant) {
@@ -65,6 +92,10 @@ function candidatesFor(prim, kinds) {
 }
 
 export function intersectPrims(p1, p2) {
+  if (p1.kind === "marks" || p2.kind === "marks") return [];
+  // Teilstuecke desselben genaeherten Bogens beruehren sich nur an den
+  // Stuetzpunkten -- das ist kein Schnittpunkt, den jemand fangen will.
+  if (p1.chain && p1.chain === p2.chain) return [];
   if (p1.kind === "line" && p2.kind === "line") {
     const hit = G.lineLine(p1.a, p1.b, p2.a, p2.b);
     return hit ? [hit] : [];
@@ -81,6 +112,7 @@ function arcHits(prim, points) {
 }
 
 function nearestOn(prim, p) {
+  if (prim.kind === "marks") return null;
   if (prim.kind === "line") return G.closestOnSegment(p, prim.a, prim.b);
   const dir = G.normalize(G.sub(p, prim.c));
   if (!dir[0] && !dir[1]) return null;
@@ -92,6 +124,7 @@ function nearestOn(prim, p) {
 }
 
 function perpendicularOn(prim, from) {
+  if (prim.kind === "marks") return null;
   if (prim.kind === "line") {
     const d = G.sub(prim.b, prim.a);
     const dd = G.dot(d, d);
@@ -114,7 +147,8 @@ export function findSnap(entities, point, opts = {}) {
 
   const near = [];
   for (const e of entities) {
-    if (e.type === "text" || e.type === "dim") continue;
+    if (e.type === "text" || e.type === "dim" || e.type === "leader" ||
+        e.type === "surface" || e.type === "fcf") continue;
     for (const prim of primitivesOf(e)) {
       const box = primBBox(prim);
       if (box && (point[0] < box[0] - tol * 3 || point[0] > box[2] + tol * 3 ||
@@ -174,6 +208,7 @@ export function findSnap(entities, point, opts = {}) {
 }
 
 function primBBox(prim) {
+  if (prim.kind === "marks") return prim.box;
   if (prim.kind === "line") return G.bbox([prim.a, prim.b]);
   return [prim.c[0] - prim.r, prim.c[1] - prim.r, prim.c[0] + prim.r, prim.c[1] + prim.r];
 }

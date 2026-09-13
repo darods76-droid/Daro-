@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import shutil
 import subprocess
 import sys
@@ -61,6 +62,38 @@ def beispiel_dokument() -> Document:
            "pos": [150, 160], "layer": "Bemassung"})
     d.add({"type": "hatch", "pts": [[60, 80], [100, 80], [100, 100], [60, 100]],
            "angle": 45, "spacing": 3, "layer": "Schraffur"})
+
+    # Die 2026 ergaenzten Arten muessen ebenso deckungsgleich herauskommen
+    d.add({"type": "ellipse", "c": [210, 110], "rx": 40, "ry": 22, "rot": 18,
+           "layer": "Kontur"})
+    d.add({"type": "leader", "p1": [110, 110], "p2": [180, 165], "text": "4x M8",
+           "layer": "Text"})
+    d.add({"type": "surface", "p": [90, 60], "kind": "machined", "value": "Ra 1,6",
+           "layer": "Text"})
+    d.add({"type": "surface", "p": [130, 60], "kind": "nomachine", "value": "Rz 25",
+           "layer": "Text"})
+    d.add({"type": "fcf", "p": [200, 45], "sym": "Rechtwinkligkeit", "tol": "0,05",
+           "datums": ["A"], "layer": "Text"})
+    d.add({"type": "fcf", "p": [200, 25], "sym": "Position", "tol": "Ø0,2",
+           "datums": ["A", "B", "C"], "layer": "Text"})
+    d.add({"type": "dim", "kind": "linear", "axis": "y", "p1": [60, 80], "p2": [60, 140],
+           "pos": [40, 110], "tolMode": "sym", "tolUpper": 0.2, "layer": "Bemassung"})
+    d.add({"type": "dim", "kind": "aligned", "p1": [160, 140], "p2": [210, 175],
+           "pos": [195, 165], "tolMode": "limits", "tolUpper": 0.05,
+           "tolLower": -0.15, "layer": "Bemassung"})
+    d.add({"type": "dim", "kind": "linear", "p1": [60, 170], "p2": [160, 170],
+           "pos": [110, 185], "tolMode": "fit", "fit": "H7", "layer": "Bemassung"})
+
+    # Ein Block, zweimal eingefuegt -- gedreht und vergroessert
+    d.define_block("Schraube M8", [
+        {"type": "circle", "c": [0, 0], "r": 4, "layer": "Kontur"},
+        {"type": "line", "a": [-6, 0], "b": [6, 0], "layer": "Mittellinie"},
+        {"type": "line", "a": [0, -6], "b": [0, 6], "layer": "Mittellinie"},
+        {"type": "text", "p": [7, -1.5], "h": 3.5, "text": "M8", "layer": "Text"},
+    ], base=(0.0, 0.0))
+    d.add({"type": "insert", "name": "Schraube M8", "p": [250, 60], "layer": "Kontur"})
+    d.add({"type": "insert", "name": "Schraube M8", "p": [250, 130], "rot": 37.5,
+           "scale": 1.75, "layer": "Kontur"})
     return d
 
 
@@ -193,6 +226,67 @@ console.log(JSON.stringify({{ entities: doc.entities.length,
         self.assertEqual({k: v for k, v in sorted(js["types"].items())},
                          dict(sorted(Counter(e["type"] for e in py.entities).items())))
         self.assertEqual(js["layers"], sorted(py.layer_names()))
+
+
+class TestBildschirmDeckung(unittest.TestCase):
+    """Jede Entitaetsart muss auch **am Bildschirm** gezeichnet werden.
+
+    Export und Anzeige liefen einmal auseinander: Ellipse, Hinweislinie,
+    Oberflaechenzeichen und Form-/Lagerahmen standen im PDF, blieben auf der
+    Leinwand aber unsichtbar, weil ``render.js`` keinen Fall dafuer hatte.
+    Dieser Test vergleicht die Faelle des Renderers mit den bekannten Arten.
+    """
+
+    def faelle(self, quelle: str, funktion: str) -> set[str]:
+        """Die ``case "..."``-Marken eines Blocks einsammeln."""
+        start = quelle.index(funktion)
+        tiefe, i, ende = 0, quelle.index("{", start), None
+        for pos in range(i, len(quelle)):
+            if quelle[pos] == "{":
+                tiefe += 1
+            elif quelle[pos] == "}":
+                tiefe -= 1
+                if tiefe == 0:
+                    ende = pos
+                    break
+        block = quelle[start:ende]
+        return set(re.findall(r'case\s+"([a-z]+)"', block))
+
+    def test_renderer_kennt_jede_art(self):
+        from daro_cad.model import ENTITY_TYPES
+        src = (ROOT / "web" / "js" / "render.js").read_text(encoding="utf-8")
+        gezeichnet = self.faelle(src, "  entity(e, override")
+        fehlend = set(ENTITY_TYPES) - gezeichnet
+        self.assertEqual(fehlend, set(),
+                         f"render.js zeichnet diese Arten nicht: {sorted(fehlend)}")
+
+    def test_primitive_fuer_jede_art(self):
+        """Auch der Export-Weg muss jede Art kennen -- in beiden Kernen."""
+        from daro_cad.model import ENTITY_TYPES
+        from daro_cad import primitives
+        doc = Document()
+        muster = {
+            "line": {"a": [0, 0], "b": [10, 0]},
+            "circle": {"c": [0, 0], "r": 5},
+            "arc": {"c": [0, 0], "r": 5, "start": 0, "end": 90},
+            "polyline": {"pts": [[0, 0], [10, 0], [10, 10]]},
+            "text": {"p": [0, 0], "h": 3.5, "text": "A"},
+            "dim": {"kind": "linear", "p1": [0, 0], "p2": [10, 0], "pos": [5, -5]},
+            "point": {"p": [0, 0]},
+            "hatch": {"pts": [[0, 0], [10, 0], [10, 10]]},
+            "ellipse": {"c": [0, 0], "rx": 10, "ry": 5},
+            "leader": {"p1": [0, 0], "p2": [10, 10], "text": "A"},
+            "surface": {"p": [0, 0], "kind": "machined", "value": "Ra 1,6"},
+            "fcf": {"p": [0, 0], "sym": "Ebenheit", "tol": "0,1"},
+            "insert": {"name": "Probe", "p": [20, 20], "rot": 30, "scale": 2},
+        }
+        doc.define_block("Probe", [{"type": "circle", "c": [0, 0], "r": 4,
+                                    "layer": "Kontur"}])
+        self.assertEqual(set(muster), set(ENTITY_TYPES), "Muster fehlt eine Art")
+        for art, felder in muster.items():
+            ent = doc.add({"type": art, "layer": "Kontur", **felder})
+            prims = primitives.entity_primitives(doc, ent)
+            self.assertTrue(prims, f"{art} erzeugt keine Zeichenelemente")
 
 
 class TestBuendel(unittest.TestCase):

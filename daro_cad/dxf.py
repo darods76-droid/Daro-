@@ -159,9 +159,22 @@ def _write_entity(w: _Writer, doc: Document, e: Dict[str, Any], explode_dims: bo
     elif t == "point":
         w.tag(0, "POINT"); _common(w, layer)
         w.tags((10, float(e["p"][0])), (20, float(e["p"][1])), (30, 0.0))
-    elif t in ("hatch", "dim"):
+    elif t == "ellipse":
+        # R12 kennt keine ELLIPSE -- als Polylinie schreiben, wie bei Schraffuren
+        pts = model.ellipse_points(e)
+        closed = abs(e["end"] - e["start"]) >= 359.999
+        _write_polyline(w, layer, pts[:-1] if closed else pts, None, closed, lt)
+    elif t in ("hatch", "dim", "leader", "surface", "fcf"):
         for prim in primitives.entity_primitives(doc, e):
             _write_primitive(w, layer, prim)
+    elif t == "insert":
+        # R12-INSERT waere kuerzer, aber aufgeloest sieht der Block in jedem
+        # Zielprogramm gleich aus -- dieselbe Linie wie bei der Bemassung.
+        for sub in doc.resolve_insert(e):
+            lay = doc.layer(sub.get("layer", ""))
+            if not lay.visible or not lay.printable:
+                continue
+            _write_entity(w, doc, sub, explode_dims)
 
 
 def _write_polyline(w: _Writer, layer: str, pts: Sequence[Point],

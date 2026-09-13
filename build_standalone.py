@@ -28,14 +28,15 @@ TARGET = ROOT / "DARO-CAD.html"
 MODULES = [
     "geom", "doc", "prims", "solid", "views", "snap", "modify",
     "export-svg", "export-dxf", "export-pdf", "import-dxf",
-    "api-local", "render", "tools", "view3d", "app",
+    "api-local", "render", "grips", "ai", "blocks", "tools", "view3d", "app",
 ]
 
 # app.js spricht die Server-API an; eigenstaendig zeigt derselbe Name auf api-local.
 ALIASES = {"api": "api-local"}
 
+# [\s\S] statt . -- Einfuhrzeilen duerfen ueber mehrere Zeilen gehen.
 IMPORT_RE = re.compile(
-    r'^import\s+(?P<what>.+?)\s+from\s+["\'](?P<path>[^"\']+)["\'];?\s*$',
+    r'^import\s+(?P<what>[\s\S]+?)\s+from\s+["\'](?P<path>[^"\']+)["\'];?[ \t]*$',
     re.MULTILINE)
 
 

@@ -89,20 +89,47 @@ schreiben und FCStd/STEP einlesen.
 ## Was die App kann
 
 **Zeichnen**
-Linie, Polylinie (mit Bögen), Rechteck, Quadrat, Kreis, Bogen, Punkt, Text und
-Schraffur. Beim Rechteck erzwingt die Umschalttaste gleiche Seiten.
+Linie, Polylinie (mit Bögen), Rechteck, Quadrat, Kreis, Bogen, Bogen über drei
+Punkte, Ellipse, regelmäßiges Vieleck (3–64 Ecken), Punkt, Text und Schraffur.
+Beim Rechteck erzwingt die Umschalttaste gleiche Seiten.
 Objektfang auf Endpunkt, Mittelpunkt, Zentrum, Quadrant, Schnittpunkt, Lot und
 Raster; Ortho- und Polarmodus; Auswahlfenster umschließend und kreuzend.
 
+**Griffe**
+Ein ausgewähltes Element zeigt seine Griffe; anfassen und ziehen ändert direkt
+Endpunkt, Mittelpunkt, Radius, Achse oder Maßlage. Der Objektfang wirkt beim
+Ziehen mit, und ein Zug ist genau ein Schritt im Rückgängig-Speicher.
+
 **Ändern**
 Verschieben, Kopieren, Drehen, Spiegeln, Skalieren, Versatz, Stutzen, Dehnen,
-Runden, Fasen, Auflösen, Löschen — jeweils mit unbegrenztem Rückgängig.
+Runden, Fasen, Reihe (rechteckig und rund), Auflösen, Löschen — jeweils mit
+unbegrenztem Rückgängig.
+
+**Messen**
+Abstand und Winkel zwischen zwei Punkten; Fläche und Umfang einer geschlossenen
+Kontur, in mm² und cm².
 
 **Bemaßen**
 Längenmaß waagerecht/senkrecht/ausgerichtet, Winkelmaß, Radius- und
 Durchmessermaß. Maßzahlen werden gerechnet, nicht getippt; wer will, überschreibt
 sie im Eigenschaftenfeld. Enge Maße setzen die Pfeile automatisch nach außen,
 kleine Bohrungen bekommen nur eine Hinweislinie.
+Dazu **Toleranzen**: symmetrisch (±0,1), als Grenzmaße (oberes und unteres Abmaß
+kleiner über- und untereinander) oder als ISO-Passung (H7, g6 …).
+
+**Normgerechte Beschriftung**
+Hinweislinie mit Pfeil, Knick und Auslauf; Oberflächenzeichen nach ISO 1302
+(beliebig, spanend, spanlos, mit Rauheitswert); Form- und Lagetoleranzrahmen nach
+ISO 1101 mit allen 14 Sinnbildern und bis zu drei Bezügen.
+
+**Blöcke**
+Eine Auswahl wird mit einem Basispunkt zum Block und danach beliebig oft
+eingefügt — gedreht und skaliert; Halbmesser, Schrifthöhen und Schraffuren
+wachsen mit. Mitgeliefert sind acht Symbole: Bohrung Ø10, Senkung 90°,
+Sechskantschraube M8, Sechskantmutter M8, Passfeder A 8×7×25, Kehlnaht a4 nach
+ISO 2553, Nordpfeil und Schnittpfeil. Ein Block lässt sich jederzeit wieder
+auflösen; beim Export wird er in seine Elemente aufgelöst, damit er in jedem
+Zielprogramm gleich aussieht.
 
 **Blatt und Schriftfeld**
 Blattformate A4 bis A0, Maßstäbe von 50:1 bis 1:1000, Zeichnungsrahmen mit
@@ -117,6 +144,21 @@ strichliert auf den Layer „Verdeckt“. Volumen und Masse werden mitgeliefert.
 **Austausch**
 Import von DXF und den eigenen Zeichnungsdateien, Export nach PDF, SVG, DXF und
 JSON. Mit FreeCAD zusätzlich FCStd, STEP und STL.
+
+**KI-Helfer** *(nur in der Online-Fassung)*
+Ein Reiter in der Seitenleiste nimmt eine Beschreibung entgegen — „Platte 120×80,
+vier Bohrungen Ø9 im Raster 100×60" — und legt die Elemente an; daneben
+beantwortet er Fragen zur Zeichnung und zur Norm.
+
+Der Helfer bekommt **keine Rechte in der App**: was zurückkommt, ist eine
+Datenliste, kein Programm. Nichts davon wird ausgeführt. Jedes Element wird Feld
+für Feld geprüft — bekannte Art, endliche Zahlen innerhalb sinnvoller Grenzen,
+bekannter Layer — und alles Unbekannte fällt weg; die App sagt dann, wie viele
+Vorschläge sie aus welchem Grund verworfen hat. Eingefügtes ist ein einziger
+Rückgängig-Schritt.
+
+Fehlt die Fähigkeit — in der Datei-Fassung, oder ohne Einverständnis —,
+verschwindet der Reiter und die App bleibt vollständig nutzbar.
 
 ---
 
@@ -257,6 +299,9 @@ web/                Zeichen-App (ES-Module, kein Framework)
   js/snap.js        Objektfang
   js/tools.js       Werkzeuge und Befehlsablauf
   js/modify.js      Stutzen, Runden, Versatz und die übrigen Änderungen
+  js/grips.js       Griffe treffen und ziehen
+  js/blocks.js      mitgelieferte Symbolbibliothek
+  js/ai.js          KI-Helfer samt Prüfung jeder Antwort
   js/view3d.js      3D-Vorschau
   js/solid.js       Spiegel von solid.py
   js/views.js       Spiegel von views.py
@@ -267,7 +312,7 @@ web/                Zeichen-App (ES-Module, kein Framework)
   js/app.js         Zusammenspiel und Oberfläche
 build_standalone.py bündelt web/ zu DARO-CAD.html
 START-*.bat/.command  Starter zum Doppelklicken
-tests/              60 Tests für Kern und Browser-Fassung
+tests/              79 Tests für Kern und Browser-Fassung
 examples/           Beispielzeichnungen samt Erzeugungsskript
 ```
 
@@ -307,13 +352,25 @@ Eine Zeichnung ist schlichtes JSON — lesbar, versionierbar, skriptbar:
   "entities": [
     { "type": "line", "layer": "Kontur", "a": [0, 0], "b": [120, 0] },
     { "type": "circle", "layer": "Kontur", "c": [30, 35], "r": 12 },
-    { "type": "dim", "kind": "linear", "p1": [0, 0], "p2": [120, 0], "pos": [60, -20] }
-  ]
+    { "type": "dim", "kind": "linear", "p1": [0, 0], "p2": [120, 0], "pos": [60, -20] },
+    { "type": "insert", "layer": "Kontur", "name": "Schraube M8 (SK)",
+      "p": [30, 35], "rot": 0, "scale": 1 }
+  ],
+  "blocks": {
+    "Schraube M8 (SK)": {
+      "base": [0, 0],
+      "entities": [ { "type": "circle", "layer": "Kontur", "c": [0, 0], "r": 4 } ]
+    }
+  }
 }
 ```
 
 Koordinaten sind Millimeter, die Y-Achse zeigt nach oben, Winkel laufen in Grad
 gegen den Uhrzeigersinn — dieselbe Konvention wie in DXF.
+
+Ein `insert` verweist auf einen Block: dessen `base` landet auf `p`, alles
+Weitere wird gedreht und skaliert. Beim Export wird der Verweis aufgelöst, damit
+die Zeichnung in jedem Zielprogramm gleich aussieht.
 
 ### Ohne Oberfläche arbeiten
 
@@ -339,6 +396,12 @@ Die Voreinstellungen folgen den einschlägigen Normen:
 * **DIN ISO 129-1** — Maßpfeile, Maßhilfslinien, Lage der Maßzahl
 * **DIN ISO 5455** — Maßstäbe
 * **ISO 2768** — voreingestellte Allgemeintoleranz
+* **ISO 286** — Grundtoleranzgrade der Passungen (H7, g6 …)
+* **ISO 1302** — Oberflächenangaben
+* **ISO 1101** — Form- und Lagetoleranzen, 14 Sinnbilder
+* **ISO 2553** — Schweißsinnbilder (Kehlnaht im mitgelieferten Symbolvorrat)
+* **DIN EN ISO 4014 / 4032, DIN 6885** — Maße der mitgelieferten Symbole
+  (Sechskant SW13 für M8, Passfeder Form A)
 
 Maßzahlen verwenden das Komma als Dezimaltrennzeichen; im Schriftfeld lässt sich
 das umstellen.
@@ -366,25 +429,42 @@ Klar benannt, damit niemand davon überrascht wird:
 * **Kreise werden für die 3D-Ableitung angenähert** (48 Kanten). Auf die
   Ansichten wirkt sich das nicht sichtbar aus, auf berechnete Volumen mit
   weniger als 0,1 % Abweichung.
+* **Blöcke werden beim Export aufgelöst**, nicht als DXF-`INSERT` geschrieben.
+  In der Zeichnung selbst bleibt der Block ein Element: ändert man seinen Inhalt,
+  ändern sich alle Verweise mit.
+* **Blockmaßstab ist gleichmäßig** — ein Block lässt sich nicht in X anders
+  strecken als in Y. Beim Verschachteln ist bei acht Ebenen Schluss, damit ein
+  Block, der sich selbst enthält, die App nicht aufhängt.
+* **Der KI-Helfer braucht die Online-Fassung.** In der Datei-Fassung fehlt ihm
+  die Schnittstelle, und der Reiter erscheint erst gar nicht.
 
 ---
 
 ## Tests
 
 ```
-python3 -m unittest discover -s tests -v
+python3 tests/test_daro_cad.py
+python3 tests/test_web_parity.py
 ```
 
-60 Tests decken Geometrie, Dokumentformat, Bemaßung, Schriftfeld, alle drei
+79 Tests decken Geometrie, Dokumentformat, Bemaßung samt Toleranzen, Ellipse,
+Hinweislinie, Oberflächen- und Form-/Lagezeichen, Blöcke, Schriftfeld, alle drei
 Exporter samt DXF-Rundlauf, Extrusion, Ansichtsableitung, die HTTP-API und die
 Fehlerpfade der FreeCAD-Brücke ab — dazu die byteweise Übereinstimmung zwischen
 Python-Kern und Browser-Fassung. Die Vergleichstests brauchen Node.js; fehlt es,
 werden sie übersprungen statt zu scheitern.
 
+Zwei Tests halten Bildschirm und Papier zusammen: Für **jede** Entitätsart wird
+geprüft, dass der Renderer sie zeichnet *und* der Exportweg Zeichenelemente
+liefert. Genau daran fehlte es einmal — Ellipse, Hinweislinie, Oberflächen- und
+Form-/Lagezeichen standen im PDF, blieben am Bildschirm aber unsichtbar.
+
 Die Zeichen-App selbst wurde mit Playwright im Browser durchgefahren: Zeichnen mit
-Maus und Tastatur, Auswahl, Auflösen, Runden, Stutzen, Dehnen, Schraffur,
-Verschieben, Extrusion, Ansichtsableitung und alle Exportwege — ohne
-Konsolenfehler.
+Maus und Tastatur, Griffe ziehen, jedes neue Werkzeug einmal bedienen, Blöcke
+erstellen/einfügen/auflösen samt Rückgängig, Auswahl, Runden, Stutzen, Dehnen,
+Schraffur, Extrusion, Ansichtsableitung, Zwei-Finger-Gesten auf Handygröße, der
+KI-Helfer mit nachgebildeter Schnittstelle (gültige Antworten kommen an,
+ungültige werden abgewiesen) und alle Exportwege — ohne Konsolenfehler.
 
 ---
 

@@ -46,6 +46,10 @@ export const DEFAULT_META = {
 };
 
 let idCounter = 0;
+// Wie tief Bloecke ineinander stecken duerfen -- verhindert Endlosschleifen,
+// wenn ein Block (versehentlich) sich selbst enthaelt.
+export const MAX_BLOCK_DEPTH = 8;
+
 export function newId() {
   idCounter += 1;
   return "e" + Date.now().toString(36) + idCounter.toString(36);
@@ -69,6 +73,43 @@ export function sheetSize(name, landscape = true) {
 
 // -- Entitaeten ------------------------------------------------------------
 
+export const TOL_MODES = ["none", "sym", "limits", "fit"];
+
+export const FCF_SYMBOLS = ["Geradheit", "Ebenheit", "Rundheit", "Zylindrizitaet",
+  "Linienprofil", "Flaechenprofil", "Parallelitaet", "Rechtwinkligkeit",
+  "Neigung", "Position", "Konzentrizitaet", "Symmetrie", "Rundlauf", "Gesamtlauf"];
+
+export const FCF_LABELS = {
+  Geradheit: "Geradheit", Ebenheit: "Ebenheit", Rundheit: "Rundheit",
+  Zylindrizitaet: "Zylindrizität", Linienprofil: "Linienprofil",
+  Flaechenprofil: "Flächenprofil", Parallelitaet: "Parallelität",
+  Rechtwinkligkeit: "Rechtwinkligkeit", Neigung: "Neigung", Position: "Position",
+  Konzentrizitaet: "Konzentrizität", Symmetrie: "Symmetrie",
+  Rundlauf: "Rundlauf", Gesamtlauf: "Gesamtlauf",
+};
+
+/** Ellipse als Polygonzug -- gleiche Schrittregel wie ellipse_points in Python. */
+export function ellipsePoints(e, sagitta = 0.05) {
+  const { c, rx, ry } = e;
+  const start = e.start ?? 0;
+  const end = e.end ?? 360;
+  let sweep = end - start;
+  if (Math.abs(sweep) < 1e-9) sweep = 360;
+  const r = Math.max(rx, ry);
+  const ratio = r > sagitta ? Math.max(0, Math.min(1, 1 - sagitta / r)) : 0;
+  const step = ratio < 1 ? Math.acos(ratio) * 2 * 180 / Math.PI : 5;
+  const n = Math.max(16, Math.ceil(Math.abs(sweep) / Math.max(step, 0.5)));
+  const rot = (e.rot || 0) * Math.PI / 180;
+  const ca = Math.cos(rot), sa = Math.sin(rot);
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const a = (start + sweep * i / n) * Math.PI / 180;
+    const x = rx * Math.cos(a), y = ry * Math.sin(a);
+    out.push([c[0] + x * ca - y * sa, c[1] + x * sa + y * ca]);
+  }
+  return out;
+}
+
 export function entityPoints(e) {
   switch (e.type) {
     case "line": return [e.a, e.b];
@@ -81,13 +122,26 @@ export function entityPoints(e) {
       return pts;
     }
     case "polyline": case "hatch": return e.pts;
-    case "text": case "point": return [e.p];
+    case "ellipse": {
+      const r = Math.max(e.rx, e.ry);
+      return [[e.c[0] - r, e.c[1] - r], [e.c[0] + r, e.c[1] + r]];
+    }
+    case "leader": return [e.p1, e.p2];
+    case "text": case "point": case "surface": case "fcf": return [e.p];
     case "dim": return e.center ? [e.p1, e.p2, e.pos, e.center] : [e.p1, e.p2, e.pos];
+    // Blockverweis: ohne die Zeichnung ist nur der Einfuegepunkt bekannt --
+    // die wirkliche Ausdehnung liefert `drawing.flatten()`.
+    case "insert": return [e.p];
     default: return [];
   }
 }
 
-export function entityBBox(e) {
+export function entityBBox(e, drawing = null) {
+  if (e.type === "insert" && drawing) {
+    const pts = [];
+    for (const sub of drawing.resolveInsert(e)) pts.push(...entityPoints(sub));
+    return pts.length ? G.bbox(pts) : G.bbox([e.p]);
+  }
   return G.bbox(entityPoints(e));
 }
 
@@ -112,6 +166,7 @@ export function outlinePoints(e) {
   switch (e.type) {
     case "line": return [e.a, e.b];
     case "circle": return G.flattenArc(e.c, e.r, 0, 360, 0.05, 16).slice(0, -1);
+    case "ellipse": return ellipsePoints(e);
     case "arc": return G.flattenArc(e.c, e.r, e.start, e.end);
     case "polyline": case "hatch": {
       const pts = [];
@@ -128,8 +183,16 @@ export function outlinePoints(e) {
 }
 
 /** Abstand eines Punktes zur Entitaet -- fuer Auswahl und Fangen. */
-export function distanceTo(e, p) {
+export function distanceTo(e, p, drawing = null) {
   switch (e.type) {
+    case "insert": {
+      if (!drawing) return Infinity;
+      let best = Infinity;
+      for (const sub of drawing.resolveInsert(e)) {
+        best = Math.min(best, distanceTo(sub, p, drawing));
+      }
+      return best;
+    }
     case "line": return G.distToSegment(p, e.a, e.b);
     case "circle": return Math.abs(G.dist(p, e.c) - e.r);
     case "arc": return G.distToArc(p, e.c, e.r, e.start, e.end);
@@ -159,6 +222,16 @@ export function distanceTo(e, p) {
       return G.dist(p, [cx, cy]);
     }
     case "point": return G.dist(p, e.p);
+    case "ellipse": {
+      const pts = ellipsePoints(e);
+      let best = Infinity;
+      for (let i = 0; i < pts.length - 1; i++) {
+        best = Math.min(best, G.distToSegment(p, pts[i], pts[i + 1]));
+      }
+      return best;
+    }
+    case "leader": return Math.min(G.distToSegment(p, e.p1, e.p2), G.dist(p, e.p2));
+    case "surface": case "fcf": return G.dist(p, e.p);
     case "dim": {
       let best = Math.min(G.dist(p, e.p1), G.dist(p, e.p2), G.dist(p, e.pos));
       best = Math.min(best, G.distToSegment(p, e.p1, e.pos), G.distToSegment(p, e.p2, e.pos));
@@ -166,6 +239,57 @@ export function distanceTo(e, p) {
     }
     default: return Infinity;
   }
+}
+
+/**
+ * Ein Element aus dem Blockraum in die Zeichnung setzen.
+ *
+ * Nur Drehstreckung: gleichmaessiger Massstab, Drehung, Verschiebung.  Weil
+ * Winkel dabei erhalten bleiben, genuegt es, Punkte abzubilden, Halbmesser und
+ * Schrifthoehen zu strecken und Winkel zu drehen -- Woelbungen der Polylinie
+ * bleiben unveraendert.  Wortgleich zu `place_entity` in daro_cad/model.py.
+ */
+export function placeEntity(e, base, target, rot = 0, scale = 1) {
+  const ca = Math.cos(rot * Math.PI / 180), sa = Math.sin(rot * Math.PI / 180);
+  const map = (pt) => {
+    const x = (pt[0] - base[0]) * scale, y = (pt[1] - base[1]) * scale;
+    return [target[0] + x * ca - y * sa, target[1] + x * sa + y * ca];
+  };
+  const out = JSON.parse(JSON.stringify(e));
+  out.id = newId();
+  const abs = Math.abs(scale);
+  switch (out.type) {
+    case "line": out.a = map(out.a); out.b = map(out.b); break;
+    case "circle": case "arc":
+      out.c = map(out.c); out.r *= abs;
+      if (out.type === "arc") {
+        out.start = G.normAngle(out.start + rot);
+        out.end = G.normAngle(out.end + rot);
+      }
+      break;
+    case "polyline": case "hatch":
+      out.pts = out.pts.map(map);
+      if (out.type === "hatch") { out.angle += rot; out.spacing *= abs; }
+      break;
+    case "ellipse":
+      out.c = map(out.c); out.rx *= abs; out.ry *= abs; out.rot += rot; break;
+    case "leader":
+      out.p1 = map(out.p1); out.p2 = map(out.p2); out.h *= abs; break;
+    case "text": case "surface":
+      out.p = map(out.p); out.h *= abs; out.rot += rot; break;
+    case "fcf":
+      // Der Rahmen nach ISO 1101 steht immer waagerecht -- nicht mitdrehen
+      out.p = map(out.p); out.h *= abs; break;
+    case "point": out.p = map(out.p); break;
+    case "dim":
+      out.p1 = map(out.p1); out.p2 = map(out.p2); out.pos = map(out.pos);
+      if (out.center) out.center = map(out.center);
+      out.h *= abs;
+      break;
+    case "insert":
+      out.p = map(out.p); out.rot += rot; out.scale *= scale; break;
+  }
+  return out;
 }
 
 /** Entitaet um einen Vektor verschieben (in place auf einer Kopie). */
@@ -194,7 +318,17 @@ export function transformEntity(e, fn) {
       break;
     }
     case "polyline": case "hatch": out.pts = out.pts.map(map); break;
-    case "text": case "point": out.p = map(out.p); break;
+    case "ellipse": {
+      const before = out.c;
+      out.c = map(before);
+      const axis = map(G.add(before, G.polar([0, 0], out.rot || 0, out.rx)));
+      out.rx = G.dist(out.c, axis);
+      out.rot = G.angleOf(G.sub(axis, out.c));
+      break;
+    }
+    case "leader": out.p1 = map(out.p1); out.p2 = map(out.p2); break;
+    case "text": case "point": case "surface": case "fcf": case "insert":
+      out.p = map(out.p); break;
     case "dim":
       out.p1 = map(out.p1); out.p2 = map(out.p2); out.pos = map(out.pos);
       if (out.center) out.center = map(out.center);
@@ -212,6 +346,9 @@ export class Drawing extends EventTarget {
     this.layers = DEFAULT_LAYERS.map((l) => ({ visible: true, locked: false, printable: true, ...l }));
     this.entities = [];
     this.solids = [];
+    // Bloecke: Name -> {entities, base}.  Die Elemente liegen im Blockraum;
+    // beim Einfuegen wandert `base` auf den Zielpunkt.
+    this.blocks = {};
     this.activeLayer = "Kontur";
     this.undoStack = [];
     this.redoStack = [];
@@ -232,7 +369,8 @@ export class Drawing extends EventTarget {
 
   snapshot() {
     return JSON.stringify({ meta: this.meta, layers: this.layers,
-      entities: this.entities, solids: this.solids, activeLayer: this.activeLayer });
+      entities: this.entities, solids: this.solids, blocks: this.blocks,
+      activeLayer: this.activeLayer });
   }
 
   /**
@@ -253,6 +391,7 @@ export class Drawing extends EventTarget {
     this.layers = data.layers;
     this.entities = data.entities;
     this.solids = data.solids || [];
+    this.blocks = data.blocks || {};
     this.activeLayer = data.activeLayer || this.layers[0].name;
     this.lastState = text;
   }
@@ -290,6 +429,44 @@ export class Drawing extends EventTarget {
 
   byId(id) { return this.entities.find((e) => e.id === id); }
 
+  // -- Bloecke -------------------------------------------------------------
+
+  /** Einen Block anlegen oder ueberschreiben. */
+  defineBlock(name, entities, base = [0, 0]) {
+    const blk = { base: [base[0], base[1]],
+      entities: entities.map((e) => ({ ...JSON.parse(JSON.stringify(e)), id: newId() })) };
+    this.blocks[String(name)] = blk;
+    return blk;
+  }
+
+  blockNames() { return Object.keys(this.blocks).sort((a, b) => a.localeCompare(b, "de")); }
+
+  /** Einen Blockverweis in gewoehnliche Elemente aufloesen. */
+  resolveInsert(ins, depth = 0) {
+    const blk = this.blocks[ins.name];
+    if (!blk || depth >= MAX_BLOCK_DEPTH) return [];
+    const names = new Set(this.layers.map((l) => l.name));
+    const out = [];
+    for (const src of blk.entities) {
+      const ent = placeEntity(src, blk.base || [0, 0], ins.p, ins.rot || 0,
+        ins.scale === undefined ? 1 : ins.scale);
+      if (!names.has(ent.layer)) ent.layer = ins.layer;
+      if (ent.type === "insert") out.push(...this.resolveInsert(ent, depth + 1));
+      else out.push(ent);
+    }
+    return out;
+  }
+
+  /** Elementliste, in der jeder Blockverweis durch seinen Inhalt ersetzt ist. */
+  flatten(entities = null) {
+    const out = [];
+    for (const e of (entities || this.entities)) {
+      if (e.type === "insert") out.push(...this.resolveInsert(e));
+      else out.push(e);
+    }
+    return out;
+  }
+
   visible() {
     return this.entities.filter((e) => {
       const l = this.layer(e.layer);
@@ -301,15 +478,23 @@ export class Drawing extends EventTarget {
     return this.visible().filter((e) => !this.layer(e.layer).locked);
   }
 
+  /** Sichtbare Geometrie zum Fangen -- Bloecke sind darin aufgeloest. */
+  snapTargets() {
+    return this.flatten(this.visible()).filter((e) => {
+      const l = this.layer(e.layer);
+      return l && l.visible;
+    });
+  }
+
   bbox() {
     const pts = [];
-    for (const e of this.entities) pts.push(...entityPoints(e));
+    for (const e of this.flatten()) pts.push(...entityPoints(e));
     return G.bbox(pts);
   }
 
   toJSON() {
     return { version: 1, meta: this.meta, layers: this.layers,
-      entities: this.entities, solids: this.solids };
+      entities: this.entities, solids: this.solids, blocks: this.blocks };
   }
 
   load(data) {
@@ -321,6 +506,10 @@ export class Drawing extends EventTarget {
     this.entities = (data.entities || []).map((e) => ({
       ...e, id: e.id || newId(), layer: names.has(e.layer) ? e.layer : this.layers[0].name }));
     this.solids = data.solids || [];
+    this.blocks = {};
+    for (const [name, blk] of Object.entries(data.blocks || {})) {
+      this.defineBlock(name, (blk || {}).entities || [], (blk || {}).base || [0, 0]);
+    }
     if (!names.has(this.activeLayer)) this.activeLayer = this.layers[0].name;
     this.undoStack.length = 0;
     this.redoStack.length = 0;

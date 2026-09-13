@@ -105,6 +105,26 @@ def dim_text(dim: Dict[str, Any], comma: bool = True) -> str:
     return f"{prefix}{txt}{dim.get('suffix') or ''}"
 
 
+def dim_tolerance(dim: Dict[str, Any], comma: bool = True):
+    """Toleranz am Mass (ISO 129-1 / ISO 286).
+
+    Rueckgabe ``(anhang, oben, unten)``: ``anhang`` steht direkt hinter der
+    Grundzahl, ``oben``/``unten`` werden als Grenzabmasse kleiner darueber und
+    darunter gesetzt.
+    """
+    mode = dim.get("tolMode", "none")
+    if mode == "sym":
+        return " ±" + format_value(abs(float(dim.get("tolUpper", 0.1))), 3, comma), None, None
+    if mode == "fit":
+        return " " + str(dim.get("fit", "")).strip(), None, None
+    if mode == "limits":
+        up = float(dim.get("tolUpper", 0.1))
+        lo = float(dim.get("tolLower", -0.1))
+        sign = lambda v: ("+" if v >= 0 else "-") + format_value(abs(v), 3, comma)
+        return "", sign(up), sign(lo)
+    return "", None, None
+
+
 def dim_primitives(dim: Dict[str, Any], color: str, lw: float, scale: float,
                    comma: bool = True) -> List[Dict[str, Any]]:
     """Bemassung in Linien, Pfeile und Text aufloesen."""
@@ -116,7 +136,22 @@ def dim_primitives(dim: Dict[str, Any], color: str, lw: float, scale: float,
     p1, p2, pos = dim["p1"], dim["p2"], dim["pos"]
     h = paper(float(dim.get("h", 3.5)))
     arrow_len = paper(ARROW_LEN)
-    label = dim_text(dim, comma)
+    suffix, tol_up, tol_lo = dim_tolerance(dim, comma)
+    label = dim_text(dim, comma) + suffix
+
+    def with_limits(prims: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Grenzabmasse klein ueber und unter die Grundzahl setzen."""
+        if tol_up is None:
+            return prims
+        base = next((q for q in reversed(prims) if q.get("k") == "text"), None)
+        if base is None:
+            return prims
+        small = h * 0.62
+        dx = h * 0.34 * (len(label) + 1)
+        for text_value, dy in ((tol_up, h * 0.55), (tol_lo, -h * 0.55)):
+            prims.append(_text(geom.add(base["p"], (dx, dy)), small, text_value,
+                               color, base.get("rot", 0.0), "start", "base"))
+        return prims
 
     if kind in ("linear", "aligned"):
         if kind == "aligned":
@@ -165,7 +200,7 @@ def dim_primitives(dim: Dict[str, Any], color: str, lw: float, scale: float,
         if not inside:
             anchor_pt = geom.add(anchor_pt, geom.mul(direction, arrow_len * 3.0))
         out.append(_text(anchor_pt, h, label, color, rot, "middle", "base"))
-        return out
+        return with_limits(out)
 
     if kind in ("radius", "diameter"):
         center, on_circle = p1, p2
@@ -217,6 +252,152 @@ def dim_primitives(dim: Dict[str, Any], color: str, lw: float, scale: float,
         out.append(_text(text_pt, h, label, color, 0.0, "middle", "base"))
         return out
 
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Beschriftung: Hinweislinie, Oberflaeche, Form- und Lagetoleranz
+# ---------------------------------------------------------------------------
+
+def leader_primitives(e, color: str, lw: float, scale: float):
+    """Hinweislinie: Pfeil, Knick, waagerechter Auslauf, Text (ISO 128-22)."""
+    p1, p2 = e["p1"], e["p2"]
+    h = e["h"] / scale
+    arrow_len = ARROW_LEN / scale
+    out = [arrow(p1, geom.sub(p2, p1), arrow_len, color),
+           _line(p1, p2, color, lw)]
+    side = 1.0 if p2[0] >= p1[0] else -1.0
+    tail = geom.add(p2, (side * h * 2.0, 0.0))
+    out.append(_line(p2, tail, color, lw))
+    if e.get("text"):
+        anchor = "start" if side > 0 else "end"
+        out.append(_text(geom.add(tail, (side * TEXT_GAP / scale, TEXT_GAP / scale)),
+                         h, e["text"], color, 0.0, anchor, "base"))
+    return out
+
+
+def surface_primitives(e, color: str, lw: float, scale: float):
+    """Oberflaechenangabe nach ISO 1302.
+
+    Grundsinnbild ist ein Haken mit ungleich langen Schenkeln. Ein waagerechter
+    Balken verlangt spanende Bearbeitung, ein Kreis verbietet sie.
+    """
+    p = e["p"]
+    h = e["h"] / scale
+    rot = float(e.get("rot", 0.0))
+    short_leg = h * 1.6
+    long_leg = h * 3.2
+
+    def at(angle: float, dist: float):
+        return geom.rotate(geom.polar(p, angle, dist), rot, p)
+
+    left = at(120.0, short_leg)
+    right = at(60.0, long_leg)
+    out = [_line(p, left, color, lw), _line(p, right, color, lw)]
+
+    kind = e.get("kind", "machined")
+    if kind == "machined":
+        # Balken auf Hoehe des kurzen Schenkels
+        across = at(60.0, short_leg)
+        out.append(_line(left, across, color, lw))
+    elif kind == "nomachine":
+        centre = at(90.0, short_leg * 0.62)
+        out.append({"k": "circle", "c": centre, "r": h * 0.45,
+                    "color": color, "lw": lw, "lt": "continuous"})
+
+    if e.get("value"):
+        out.append(_text(at(150.0, short_leg * 1.15), h, e["value"], color, rot,
+                         "end", "base"))
+    if e.get("value2"):
+        out.append(_text(at(70.0, long_leg * 1.05), h, e["value2"], color, rot,
+                         "start", "base"))
+    return out
+
+
+# Sinnbilder nach ISO 1101, gezeichnet in einem Kaestchen der Kantenlaenge s
+# mit Mittelpunkt (cx, cy).
+def fcf_symbol(name: str, cx: float, cy: float, s: float, color: str, lw: float):
+    r = s * 0.34
+    line = lambda a, b: _line(a, b, color, lw)
+    circle = lambda rr: {"k": "circle", "c": (cx, cy), "r": rr,
+                         "color": color, "lw": lw, "lt": "continuous"}
+    if name == "Geradheit":
+        return [line((cx - r, cy), (cx + r, cy))]
+    if name == "Ebenheit":
+        return [{"k": "poly", "close": True, "color": color, "lw": lw, "lt": "continuous",
+                 "pts": [(cx - r, cy - r * 0.6), (cx + r * 0.4, cy - r * 0.6),
+                         (cx + r, cy + r * 0.6), (cx - r * 0.4, cy + r * 0.6)]}]
+    if name == "Rundheit":
+        return [circle(r)]
+    if name == "Zylindrizitaet":
+        return [circle(r * 0.72),
+                line((cx - r, cy - r), (cx - r, cy + r)),
+                line((cx + r, cy - r), (cx + r, cy + r))]
+    if name == "Linienprofil":
+        return [{"k": "arc", "c": (cx, cy - r * 0.5), "r": r, "start": 30.0, "end": 150.0,
+                 "color": color, "lw": lw, "lt": "continuous"}]
+    if name == "Flaechenprofil":
+        return [{"k": "arc", "c": (cx, cy - r * 0.5), "r": r, "start": 30.0, "end": 150.0,
+                 "color": color, "lw": lw, "lt": "continuous"},
+                line((cx - r * 0.9, cy - r * 0.5), (cx + r * 0.9, cy - r * 0.5))]
+    if name == "Parallelitaet":
+        return [line((cx - r * 0.9, cy - r), (cx - r * 0.1, cy + r)),
+                line((cx + r * 0.1, cy - r), (cx + r * 0.9, cy + r))]
+    if name == "Rechtwinkligkeit":
+        return [line((cx - r * 0.7, cy - r), (cx - r * 0.7, cy + r)),
+                line((cx - r, cy - r), (cx + r, cy - r))]
+    if name == "Neigung":
+        return [line((cx - r, cy - r), (cx + r, cy - r)),
+                line((cx - r * 0.6, cy - r), (cx + r * 0.6, cy + r))]
+    if name == "Position":
+        return [circle(r * 0.62),
+                line((cx - r, cy), (cx + r, cy)), line((cx, cy - r), (cx, cy + r))]
+    if name == "Konzentrizitaet":
+        return [circle(r), circle(r * 0.45)]
+    if name == "Symmetrie":
+        return [line((cx - r, cy), (cx + r, cy)),
+                line((cx - r * 0.6, cy + r * 0.55), (cx + r * 0.6, cy + r * 0.55)),
+                line((cx - r * 0.6, cy - r * 0.55), (cx + r * 0.6, cy - r * 0.55))]
+    if name in ("Rundlauf", "Gesamtlauf"):
+        out = [arrow((cx + r, cy + r), (-1.0, -1.0), s * 0.34, color),
+               line((cx - r, cy - r), (cx + r, cy + r))]
+        if name == "Gesamtlauf":
+            out.append(line((cx - r, cy - r * 0.35), (cx + r * 0.65, cy + r)))
+        return out
+    return [circle(r * 0.6)]
+
+
+def fcf_primitives(e, color: str, lw: float, scale: float, comma: bool = True):
+    """Form- und Lagetoleranz nach ISO 1101: Rahmen mit Sinnbild, Wert, Bezug."""
+    h = e["h"] / scale
+    box = h * 2.0                         # Kaestchenhoehe
+    x, y = e["p"]
+    out = []
+    # Sinnbild-Feld
+    out.append({"k": "poly", "close": True, "color": color, "lw": lw, "lt": "continuous",
+                "pts": [(x, y), (x + box, y), (x + box, y + box), (x, y + box)]})
+    out.extend(fcf_symbol(e.get("sym", "Position"), x + box / 2.0, y + box / 2.0,
+                          box * 0.72, color, lw))
+    cursor = x + box
+
+    # Toleranzfeld -- Breite nach Textlaenge, mindestens zwei Kaestchen
+    tol = str(e.get("tol", ""))
+    width = max(box * 2.0, h * 0.62 * len(tol) + h * 1.2)
+    out.append({"k": "poly", "close": True, "color": color, "lw": lw, "lt": "continuous",
+                "pts": [(cursor, y), (cursor + width, y),
+                        (cursor + width, y + box), (cursor, y + box)]})
+    out.append(_text((cursor + width / 2.0, y + box * 0.3), h, tol, color, 0.0,
+                     "middle", "base"))
+    cursor += width
+
+    for datum in e.get("datums", []):
+        w = box * 1.2
+        out.append({"k": "poly", "close": True, "color": color, "lw": lw, "lt": "continuous",
+                    "pts": [(cursor, y), (cursor + w, y),
+                            (cursor + w, y + box), (cursor, y + box)]})
+        out.append(_text((cursor + w / 2.0, y + box * 0.3), h, datum, color, 0.0,
+                         "middle", "base"))
+        cursor += w
     return out
 
 
@@ -316,8 +497,24 @@ def entity_primitives(doc: Document, entity: Dict[str, Any]) -> List[Dict[str, A
         spacing = float(entity.get("spacing", 3.0)) / scale
         return [_line(a, b, color, lw, "continuous")
                 for a, b in hatch_lines(pts, entity.get("angle", 45.0), spacing)]
+    if t == "ellipse":
+        return [{"k": "poly", "pts": model.ellipse_points(entity),
+                 "close": abs(entity["end"] - entity["start"]) >= 359.999,
+                 "color": color, "lw": lw, "lt": lt}]
+    if t == "leader":
+        return leader_primitives(entity, color, lw, scale)
+    if t == "surface":
+        return surface_primitives(entity, color, lw, scale)
+    if t == "fcf":
+        return fcf_primitives(entity, color, lw, scale, comma)
     if t == "dim":
         return dim_primitives(entity, color, lw, scale, comma)
+    if t == "insert":
+        # Blockverweis: Inhalt aufloesen und ganz normal zeichnen
+        out = []
+        for sub in doc.resolve_insert(entity):
+            out.extend(entity_primitives(doc, sub))
+        return out
     return []
 
 

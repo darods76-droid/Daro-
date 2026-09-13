@@ -1,7 +1,7 @@
 // DXF-Export im Browser (AutoCAD R12 ASCII) -- Uebertragung von daro_cad/dxf.py.
 // R12 lesen FreeCAD, LibreCAD, QCAD, AutoCAD und Inkscape zuverlaessig.
 import * as P from "./prims.js";
-import { polylineSegments, parseScale } from "./doc.js";
+import { polylineSegments, parseScale, ellipsePoints } from "./doc.js";
 
 // AutoCAD Color Index -> RGB (nur die gebraeuchlichen Farben).
 const ACI_RGB = {
@@ -153,10 +153,29 @@ function writeEntity(w, drawing, e) {
       w.tag(0, "POINT"); common(w, layer);
       w.tags([[10, Number(e.p[0])], [20, Number(e.p[1])], [30, 0.0]]);
       break;
+    case "ellipse": {
+      // R12 kennt keine ELLIPSE -- als Polylinie schreiben, wie bei Schraffuren
+      const pts = ellipsePoints(e);
+      const closed = Math.abs((e.end ?? 360) - (e.start ?? 0)) >= 359.999;
+      writePolyline(w, layer, closed ? pts.slice(0, -1) : pts, null, closed, lt);
+      break;
+    }
+    case "leader":
+    case "surface":
+    case "fcf":
     case "hatch":
     case "dim":
       // In Einzelelemente aufgeloest, damit es ueberall gleich aussieht
       for (const prim of P.entityPrimitives(drawing, e)) writePrimitive(w, layer, prim);
+      break;
+    case "insert":
+      // R12-INSERT waere kuerzer, aber aufgeloest sieht der Block in jedem
+      // Zielprogramm gleich aus -- dieselbe Linie wie bei der Bemassung.
+      for (const sub of drawing.resolveInsert(e)) {
+        const lay = drawing.layer(sub.layer);
+        if (!lay || !lay.visible || lay.printable === false) continue;
+        writeEntity(w, drawing, sub);
+      }
       break;
   }
 }

@@ -162,6 +162,186 @@ class TestBemassung(unittest.TestCase):
                 self.assertTrue(geom.point_in_polygon(p, rect(0, 0, 40, 20)))
 
 
+class TestNeueArten(unittest.TestCase):
+    """Ellipse, Hinweislinie, Oberflaeche, Form-/Lagetoleranz, Masstoleranz."""
+
+    def test_ellipse_liegt_auf_der_bahn(self):
+        e = normalize_entity({"type": "ellipse", "c": [0, 0], "rx": 40, "ry": 20,
+                              "rot": 30})
+        pts = outline_points(e)
+        self.assertGreaterEqual(len(pts), 16)
+        # Punkt bei 0 Grad liegt auf der gedrehten Hauptachse
+        self.assertAlmostEqual(pts[0][0], 40 * math.cos(math.radians(30)), places=6)
+        self.assertAlmostEqual(pts[0][1], 40 * math.sin(math.radians(30)), places=6)
+        # Jeder Punkt erfuellt die Ellipsengleichung im gedrehten System
+        for x, y in pts:
+            a = math.radians(-30)
+            u = x * math.cos(a) - y * math.sin(a)
+            v = x * math.sin(a) + y * math.cos(a)
+            self.assertAlmostEqual((u / 40) ** 2 + (v / 20) ** 2, 1.0, places=6)
+
+    def test_masstoleranz_alle_arten(self):
+        def text(mode, **extra):
+            d = normalize_entity({"type": "dim", "kind": "linear", "p1": [0, 0],
+                                  "p2": [50, 0], "pos": [25, -10], "decimals": 0,
+                                  "tolMode": mode, **extra})
+            prims = primitives.dim_primitives(d, "#000", 0.25, 1.0)
+            return [q["text"] for q in prims if q["k"] == "text"]
+
+        self.assertEqual(text("none"), ["50"])
+        self.assertEqual(text("sym", tolUpper=0.2), ["50 ±0,2"])
+        self.assertEqual(text("fit", fit="H7"), ["50 H7"])
+        self.assertEqual(text("limits", tolUpper=0.05, tolLower=-0.15),
+                         ["50", "+0,05", "-0,15"])
+
+    def test_unbekannte_toleranzart_faellt_zurueck(self):
+        d = normalize_entity({"type": "dim", "kind": "linear", "p1": [0, 0],
+                              "p2": [10, 0], "pos": [5, -5], "tolMode": "quatsch"})
+        self.assertEqual(d["tolMode"], "none")
+
+    def test_alle_form_und_lagesinnbilder_zeichenbar(self):
+        from daro_cad.model import FCF_SYMBOLS
+        for name in FCF_SYMBOLS:
+            prims = primitives.fcf_symbol(name, 0.0, 0.0, 5.0, "#000", 0.25)
+            self.assertTrue(prims, name)
+            for q in prims:
+                self.assertIn(q["k"], ("line", "circle", "arc", "poly", "fill"), name)
+
+    def test_form_und_lagerahmen_waechst_mit_bezuegen(self):
+        def breite(datums):
+            e = normalize_entity({"type": "fcf", "p": [0, 0], "sym": "Position",
+                                  "tol": "0,2", "datums": datums})
+            pts = [p for q in primitives.fcf_primitives(e, "#000", 0.25, 1.0)
+                   if q["k"] == "poly" for p in q["pts"]]
+            box = geom.bbox(pts)
+            return box[2] - box[0]
+        self.assertLess(breite([]), breite(["A"]))
+        self.assertLess(breite(["A"]), breite(["A", "B", "C"]))
+
+    def test_oberflaeche_kennzeichen(self):
+        def kinds(kind):
+            e = normalize_entity({"type": "surface", "p": [0, 0], "kind": kind,
+                                  "value": "Ra 1,6"})
+            return [q["k"] for q in primitives.surface_primitives(e, "#000", 0.25, 1.0)]
+        self.assertNotIn("circle", kinds("machined"))   # Balken statt Kreis
+        self.assertIn("circle", kinds("nomachine"))     # Kreis verbietet Spanen
+        self.assertEqual(kinds("any").count("line"), 2)  # nur die zwei Schenkel
+
+    def test_hinweislinie(self):
+        e = normalize_entity({"type": "leader", "p1": [0, 0], "p2": [20, 20],
+                              "text": "4x M8"})
+        prims = primitives.leader_primitives(e, "#000", 0.25, 1.0)
+        self.assertEqual([q["k"] for q in prims], ["fill", "line", "line", "text"])
+        self.assertEqual(prims[-1]["text"], "4x M8")
+
+    def test_neue_arten_im_dxf(self):
+        doc = Document()
+        for e in ({"type": "ellipse", "c": [50, 50], "rx": 40, "ry": 20},
+                  {"type": "leader", "p1": [0, 0], "p2": [20, 20], "text": "M8"},
+                  {"type": "surface", "p": [10, 10], "value": "Ra 3,2"},
+                  {"type": "fcf", "p": [30, 30], "sym": "Ebenheit", "tol": "0,1"}):
+            doc.add(e)
+        text = dxf.export(doc, with_sheet=False)
+        back = dxf.load(text)
+        self.assertGreaterEqual(len(back.entities), 4)
+        # Die Ellipse wird als geschlossene Polylinie geschrieben (R12 kennt keine)
+        self.assertTrue(any(e["type"] == "polyline" and e["closed"]
+                            for e in back.entities))
+
+
+class TestBloecke(unittest.TestCase):
+    """Bloecke: einmal zeichnen, beliebig oft einsetzen."""
+
+    def bock(self) -> Document:
+        d = Document()
+        d.define_block("Schraube", [
+            {"type": "circle", "c": [0, 0], "r": 4, "layer": "Kontur"},
+            {"type": "line", "a": [-6, 0], "b": [6, 0], "layer": "Mittellinie"},
+            {"type": "text", "p": [8, 0], "h": 3.5, "text": "M8", "layer": "Text"},
+        ], base=(0.0, 0.0))
+        return d
+
+    def test_verweis_bleibt_ein_element(self):
+        d = self.bock()
+        d.add({"type": "insert", "name": "Schraube", "p": [100, 50], "layer": "Kontur"})
+        self.assertEqual(len(d.entities), 1)
+        self.assertEqual(len(d.flatten()), 3)
+
+    def test_massstab_und_drehung_wirken_auf_alles(self):
+        d = self.bock()
+        ins = d.add({"type": "insert", "name": "Schraube", "p": [100, 50],
+                     "rot": 90, "scale": 2, "layer": "Kontur"})
+        kreis, linie, schrift = d.resolve_insert(ins)
+        self.assertEqual(kreis["r"], 8.0)                    # Halbmesser verdoppelt
+        self.assertEqual(schrift["h"], 7.0)                  # Schrift ebenso
+        # 90 Grad gedreht: die waagerechte Mittellinie steht jetzt senkrecht
+        self.assertAlmostEqual(linie["a"][0], 100.0, places=9)
+        self.assertAlmostEqual(linie["a"][1], 50.0 - 12.0, places=9)
+        self.assertAlmostEqual(linie["b"][1], 50.0 + 12.0, places=9)
+
+    def test_basispunkt_landet_auf_dem_zielpunkt(self):
+        d = Document()
+        d.define_block("Ecke", [{"type": "line", "a": [10, 10], "b": [20, 10],
+                                 "layer": "Kontur"}], base=(10.0, 10.0))
+        ins = d.add({"type": "insert", "name": "Ecke", "p": [200, 300], "layer": "Kontur"})
+        (linie,) = d.resolve_insert(ins)
+        self.assertEqual(linie["a"], (200.0, 300.0))
+        self.assertEqual(linie["b"], (210.0, 300.0))
+
+    def test_bbox_umfasst_den_inhalt(self):
+        d = self.bock()
+        d.add({"type": "insert", "name": "Schraube", "p": [100, 50], "layer": "Kontur"})
+        x0, y0, x1, y1 = d.bbox()
+        self.assertLessEqual(x0, 94.0)        # linkes Ende der Mittellinie
+        self.assertGreaterEqual(x1, 108.0)    # Schrift rechts daneben
+        self.assertLessEqual(y0, 46.0)
+        self.assertGreaterEqual(y1, 54.0)
+
+    def test_unbekannter_block_wird_uebergangen(self):
+        d = Document()
+        ins = d.add({"type": "insert", "name": "gibtsnicht", "p": [0, 0]})
+        self.assertEqual(d.resolve_insert(ins), [])
+        self.assertEqual(d.flatten(), [])
+
+    def test_block_in_block_endet(self):
+        """Ein Block, der sich selbst enthaelt, darf die App nicht aufhaengen."""
+        d = Document()
+        d.define_block("Schleife", [
+            {"type": "line", "a": [0, 0], "b": [1, 0], "layer": "Kontur"},
+            {"type": "insert", "name": "Schleife", "p": [1, 0], "layer": "Kontur"},
+        ])
+        ins = d.add({"type": "insert", "name": "Schleife", "p": [0, 0]})
+        teile = d.resolve_insert(ins)
+        self.assertEqual(len(teile), model.MAX_BLOCK_DEPTH)
+        self.assertTrue(all(t["type"] == "line" for t in teile))
+
+    def test_bloecke_ueberstehen_speichern(self):
+        d = self.bock()
+        d.add({"type": "insert", "name": "Schraube", "p": [100, 50], "rot": 30,
+               "scale": 1.5, "layer": "Kontur"})
+        wieder = Document.from_json(d.to_json())
+        self.assertEqual(sorted(wieder.blocks), ["Schraube"])
+        self.assertEqual(len(wieder.blocks["Schraube"]["entities"]), 3)
+        self.assertEqual([e["type"] for e in wieder.flatten()],
+                         [e["type"] for e in d.flatten()])
+
+    def test_dxf_schreibt_den_inhalt_auf_dessen_layern(self):
+        d = self.bock()
+        d.add({"type": "insert", "name": "Schraube", "p": [100, 50], "layer": "Kontur"})
+        text = dxf.export(d, with_sheet=False)
+        self.assertIn("CIRCLE", text)
+        self.assertIn("M8", text)
+        # Die Mittellinie behaelt ihren eigenen Layer, nicht den des Verweises
+        block = text.split("LINE", 1)[1]
+        self.assertIn("Mittellinie", block)
+
+    def test_verdeckter_layer_wird_nicht_gedruckt(self):
+        d = self.bock()
+        d.layer("Text").visible = False
+        d.add({"type": "insert", "name": "Schraube", "p": [100, 50], "layer": "Kontur"})
+        self.assertNotIn("M8", dxf.export(d, with_sheet=False))
+
+
 class TestSchriftfeld(unittest.TestCase):
     def test_zellen_passen_ins_feld(self):
         cells = primitives.title_block_cells(Document().meta)

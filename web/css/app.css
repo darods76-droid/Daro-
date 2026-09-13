@@ -362,3 +362,16 @@ body.compact .wide-only { display: none; }
   .tabs button { padding: 12px 3px; }
   .layer-row { padding: 9px 8px; }
 }
+
+
+/* ---- KI-Helfer ---- */
+#aiPrompt { resize: vertical; font: inherit; min-height: 70px; }
+.ai-log { display: grid; gap: 8px; margin: 10px 0; }
+.ai-msg {
+  padding: 9px 11px; border-radius: 8px; font-size: 12.5px; line-height: 1.5;
+  border: 1px solid var(--line); background: #f7f9fc; white-space: pre-wrap;
+}
+.ai-msg.me { background: var(--accent-soft); border-color: #bfd6fb; }
+.ai-msg.err { background: #fdf0ec; border-color: #f0c2b4; }
+.ai-msg b { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px;
+            text-transform: uppercase; letter-spacing: .4px; }

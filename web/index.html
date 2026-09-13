@@ -117,6 +117,7 @@
       <button data-tab="props">Eigenschaften</button>
       <button data-tab="title">Schriftfeld</button>
       <button data-tab="model">3D &amp; Ansichten</button>
+      <button data-tab="ai" id="tabAi" hidden>KI-Helfer</button>
     </div>
 
     <div class="tab-body">
@@ -148,6 +149,73 @@
             <input type="number" id="optHatchAngle" value="45" step="15"></label>
           <label>Schraffurabstand
             <input type="number" id="optHatchSpacing" value="3" step="0.5" min="0.2"></label>
+          <label>Vieleck-Ecken
+            <input type="number" id="optPolygonSides" value="6" min="3" max="64"></label>
+        </div>
+
+        <h4>Beschriftung</h4>
+        <div class="grid2">
+          <label>Oberfläche
+            <select id="optSurfaceKind">
+              <option value="machined">spanend (Balken)</option>
+              <option value="any">beliebig</option>
+              <option value="nomachine">spanlos (Kreis)</option>
+            </select></label>
+          <label>Rauheit
+            <input type="text" id="optSurfaceValue" value="Ra 3,2"></label>
+        </div>
+        <div class="grid1">
+          <label>Form- und Lagetoleranz
+            <select id="optFcfSymbol"></select></label>
+          <div class="grid2">
+            <label>Toleranz <input type="text" id="optFcfTolerance" value="0,1"></label>
+            <label>Bezüge <input type="text" id="optFcfDatums" value="A" placeholder="A B C"></label>
+          </div>
+        </div>
+
+        <h4>Maßtoleranz</h4>
+        <div class="grid1">
+          <label>Art
+            <select id="optTolMode">
+              <option value="none">ohne</option>
+              <option value="sym">symmetrisch ±</option>
+              <option value="limits">Grenzabmaße</option>
+              <option value="fit">ISO-Passung</option>
+            </select></label>
+          <div class="grid2">
+            <label>oberes Abmaß <input type="number" id="optTolUpper" value="0.1" step="0.01"></label>
+            <label>unteres Abmaß <input type="number" id="optTolLower" value="-0.1" step="0.01"></label>
+          </div>
+          <label>Passung <input type="text" id="optFit" value="H7"></label>
+        </div>
+
+        <h4>Reihe</h4>
+        <div class="grid1">
+          <label>Art
+            <select id="optArrayKind">
+              <option value="rect">rechteckig</option>
+              <option value="polar">rund um einen Punkt</option>
+            </select></label>
+          <div class="grid2">
+            <label>Spalten <input type="number" id="optArrayCols" value="3" min="1"></label>
+            <label>Zeilen <input type="number" id="optArrayRows" value="2" min="1"></label>
+            <label>Abstand X <input type="number" id="optArrayDx" value="50" step="5"></label>
+            <label>Abstand Y <input type="number" id="optArrayDy" value="40" step="5"></label>
+            <label>Anzahl rund <input type="number" id="optArrayCount" value="6" min="2"></label>
+          </div>
+        </div>
+
+        <h4>Blöcke</h4>
+        <div class="grid1">
+          <label>Symbol
+            <select id="optBlockPick"></select></label>
+          <div class="grid2">
+            <label>Drehung ° <input type="number" id="optBlockRot" value="0" step="15"></label>
+            <label>Maßstab <input type="number" id="optBlockScale" value="1" step="0.25" min="0.05"></label>
+          </div>
+          <label>Neuer Blockname
+            <input type="text" id="optBlockName" placeholder="z. B. Bohrbild"></label>
+          <button type="button" id="btnBlockLibrary" class="btn wide">Symbolbibliothek laden</button>
         </div>
       </section>
 
@@ -182,6 +250,21 @@
           <label class="check"><input type="checkbox" data-meta="decimalComma" checked>
             Komma als Dezimaltrennzeichen (DIN)</label>
         </div>
+      </section>
+
+      <section data-panel="ai">
+        <p class="muted small">Beschreibe, was gezeichnet werden soll. Der Helfer
+          erzeugt Elemente und fügt sie in die Zeichnung ein – rückgängig machbar
+          wie jede andere Änderung.</p>
+        <textarea id="aiPrompt" rows="4"
+          placeholder="Platte 120 × 80, vier Bohrungen Ø9 im Raster 100 × 60, Ecken R10"></textarea>
+        <div class="grid2">
+          <button class="btn wide" id="btnAiDraw">Zeichnen lassen</button>
+          <button class="btn" id="btnAiAsk">Nur fragen</button>
+        </div>
+        <div class="ai-log" id="aiLog"></div>
+        <p class="muted small">Vorschläge werden geprüft, bevor sie eingefügt werden:
+          nur bekannte Elementarten, endliche Zahlen, vorhandene Layer.</p>
       </section>
 
       <section data-panel="model">

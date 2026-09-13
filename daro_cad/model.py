@@ -152,6 +152,9 @@ class Document:
         self.layers: List[Layer] = [Layer(**d) for d in copy.deepcopy(DEFAULT_LAYERS)]
         self.entities: List[Dict[str, Any]] = []
         self.solids: List[Dict[str, Any]] = []
+        # Bloecke: Name -> {"entities": [...], "base": (x, y)}.  Die Elemente
+        # liegen im Blockraum; beim Einfuegen wandert `base` auf den Zielpunkt.
+        self.blocks: Dict[str, Dict[str, Any]] = {}
 
     # -- Layer ------------------------------------------------------------
     def layer(self, name: str) -> Layer:
@@ -186,6 +189,45 @@ class Document:
             out.append(e)
         return out
 
+    # -- Bloecke ----------------------------------------------------------
+    def define_block(self, name: str, entities: Iterable[Dict[str, Any]],
+                     base: Point = (0.0, 0.0)) -> Dict[str, Any]:
+        """Einen Block anlegen oder ueberschreiben."""
+        blk = {"entities": [normalize_entity(dict(e), default_layer=self.layers[0].name)
+                            for e in entities],
+               "base": _pt(base)}
+        self.blocks[str(name)] = blk
+        return blk
+
+    def resolve_insert(self, ins: Dict[str, Any], depth: int = 0) -> List[Dict[str, Any]]:
+        """Einen Blockverweis in gewoehnliche Elemente aufloesen."""
+        blk = self.blocks.get(ins.get("name", ""))
+        if not blk or depth >= MAX_BLOCK_DEPTH:
+            return []
+        known = set(self.layer_names())
+        out: List[Dict[str, Any]] = []
+        for src in blk["entities"]:
+            ent = place_entity(src, blk.get("base", (0.0, 0.0)), ins["p"],
+                               ins.get("rot", 0.0), ins.get("scale", 1.0))
+            if ent.get("layer") not in known:
+                ent["layer"] = ins.get("layer", self.layers[0].name)
+            if ent["type"] == "insert":
+                out.extend(self.resolve_insert(ent, depth + 1))
+            else:
+                out.append(ent)
+        return out
+
+    def flatten(self, entities: Optional[Iterable[Dict[str, Any]]] = None
+                ) -> List[Dict[str, Any]]:
+        """Elementliste, in der jeder Blockverweis durch seinen Inhalt ersetzt ist."""
+        out: List[Dict[str, Any]] = []
+        for e in (self.entities if entities is None else entities):
+            if e.get("type") == "insert":
+                out.extend(self.resolve_insert(e))
+            else:
+                out.append(e)
+        return out
+
     # -- Kennzahlen -------------------------------------------------------
     @property
     def scale_factor(self) -> float:
@@ -202,7 +244,7 @@ class Document:
 
     def bbox(self):
         pts: List[Point] = []
-        for e in self.entities:
+        for e in self.flatten():
             pts.extend(entity_points(e))
         return geom.bbox(pts)
 
@@ -214,6 +256,7 @@ class Document:
             "layers": [lay.to_dict() for lay in self.layers],
             "entities": self.entities,
             "solids": self.solids,
+            "blocks": self.blocks,
         }
 
     @classmethod
@@ -236,6 +279,9 @@ class Document:
                 ent["layer"] = default_layer
             doc.entities.append(ent)
         doc.solids = list(data.get("solids") or [])
+        for name, blk in (data.get("blocks") or {}).items():
+            doc.define_block(name, (blk or {}).get("entities") or [],
+                             (blk or {}).get("base") or (0.0, 0.0))
         return doc
 
     def to_json(self, indent: int = 1) -> str:
@@ -250,7 +296,25 @@ class Document:
 # Entitaeten
 # ---------------------------------------------------------------------------
 
-ENTITY_TYPES = {"line", "circle", "arc", "polyline", "text", "dim", "point", "hatch"}
+ENTITY_TYPES = {"line", "circle", "arc", "polyline", "text", "dim", "point", "hatch",
+                "ellipse", "leader", "surface", "fcf", "insert"}
+
+# Wie tief Bloecke ineinander stecken duerfen -- verhindert Endlosschleifen,
+# wenn ein Block (versehentlich) sich selbst enthaelt.
+MAX_BLOCK_DEPTH = 8
+
+# Toleranzarten am Mass (ISO 129-1 / ISO 286)
+TOL_MODES = {"none", "sym", "limits", "fit"}
+
+# Form- und Lagetoleranzen nach ISO 1101 -- die Sinnbilder werden gezeichnet,
+# nicht als Schriftzeichen gesetzt, damit sie in PDF und DXF gleich aussehen.
+FCF_SYMBOLS = ["Geradheit", "Ebenheit", "Rundheit", "Zylindrizitaet",
+               "Linienprofil", "Flaechenprofil", "Parallelitaet",
+               "Rechtwinkligkeit", "Neigung", "Position", "Konzentrizitaet",
+               "Symmetrie", "Rundlauf", "Gesamtlauf"]
+
+# Oberflaechenangaben nach ISO 1302
+SURFACE_KINDS = {"any", "machined", "nomachine"}
 
 
 def _pt(value: Any, fallback: Point = (0.0, 0.0)) -> Point:
@@ -298,6 +362,31 @@ def normalize_entity(e: Dict[str, Any], default_layer: str = "Kontur") -> Dict[s
         e["pts"] = [_pt(p) for p in e.get("pts", [])]
         e["angle"] = float(e.get("angle", 45.0))
         e["spacing"] = abs(float(e.get("spacing", 3.0))) or 3.0
+    elif t == "ellipse":
+        e["c"] = _pt(e.get("c"))
+        e["rx"] = abs(float(e.get("rx", 10.0))) or 10.0
+        e["ry"] = abs(float(e.get("ry", 5.0))) or 5.0
+        e["rot"] = float(e.get("rot", 0.0))
+        e["start"] = float(e.get("start", 0.0))
+        e["end"] = float(e.get("end", 360.0))
+    elif t == "leader":
+        e["p1"] = _pt(e.get("p1"))                    # Pfeilspitze
+        e["p2"] = _pt(e.get("p2"), (20.0, 20.0))      # Knick und Textlage
+        e["text"] = str(e.get("text", ""))
+        e["h"] = float(e.get("h", 3.5))
+    elif t == "surface":
+        e["p"] = _pt(e.get("p"))
+        e["h"] = float(e.get("h", 3.5))
+        e["rot"] = float(e.get("rot", 0.0))
+        e["kind"] = e.get("kind") if e.get("kind") in SURFACE_KINDS else "machined"
+        e["value"] = str(e.get("value", ""))
+        e["value2"] = str(e.get("value2", ""))
+    elif t == "fcf":
+        e["p"] = _pt(e.get("p"))
+        e["h"] = float(e.get("h", 3.5))
+        e["sym"] = e.get("sym") if e.get("sym") in FCF_SYMBOLS else "Position"
+        e["tol"] = str(e.get("tol", "0,1"))
+        e["datums"] = [str(d) for d in (e.get("datums") or []) if str(d)][:3]
     elif t == "dim":
         e["kind"] = e.get("kind", "linear")
         e["p1"] = _pt(e.get("p1"))
@@ -311,6 +400,17 @@ def normalize_entity(e: Dict[str, Any], default_layer: str = "Kontur") -> Dict[s
         e.setdefault("prefix", "")
         e.setdefault("suffix", "")
         e.setdefault("decimals", int(e.get("decimals", 1)))
+        mode = e.get("tolMode", "none")
+        e["tolMode"] = mode if mode in TOL_MODES else "none"
+        e["tolUpper"] = float(e.get("tolUpper", 0.1))
+        e["tolLower"] = float(e.get("tolLower", -0.1))
+        e["fit"] = str(e.get("fit", "H7"))
+    elif t == "insert":
+        e["name"] = str(e.get("name", ""))
+        e["p"] = _pt(e.get("p"))
+        e["rot"] = float(e.get("rot", 0.0))
+        scale = float(e.get("scale", 1.0))
+        e["scale"] = scale if abs(scale) > 1e-9 else 1.0
     return e
 
 
@@ -331,14 +431,88 @@ def entity_points(e: Dict[str, Any]) -> List[Point]:
         return pts
     if t in ("polyline", "hatch"):
         return list(e["pts"])
-    if t in ("text", "point"):
+    if t == "ellipse":
+        c, rx, ry = e["c"], e["rx"], e["ry"]
+        r = max(rx, ry)
+        return [(c[0] - r, c[1] - r), (c[0] + r, c[1] + r)]
+    if t == "leader":
+        return [e["p1"], e["p2"]]
+    if t in ("text", "point", "surface", "fcf"):
         return [e["p"]]
     if t == "dim":
         pts = [e["p1"], e["p2"], e["pos"]]
         if e.get("center"):
             pts.append(e["center"])
         return pts
+    if t == "insert":
+        # Ohne das Dokument ist nur der Einfuegepunkt bekannt; die wirkliche
+        # Ausdehnung liefert ``Document.flatten()``.
+        return [e["p"]]
     return []
+
+
+def place_entity(e: Dict[str, Any], base: Point, target: Point,
+                 rot: float = 0.0, scale: float = 1.0) -> Dict[str, Any]:
+    """Ein Element aus dem Blockraum in die Zeichnung setzen.
+
+    Nur Drehstreckung: gleichmaessiger Massstab, Drehung, Verschiebung.  Weil
+    Winkel dabei erhalten bleiben, genuegt es, Punkte abzubilden, Halbmesser und
+    Schrifthoehen zu strecken und Winkel zu drehen -- Woelbungen der Polylinie
+    bleiben unveraendert.
+    """
+    ca = math.cos(math.radians(rot))
+    sa = math.sin(math.radians(rot))
+
+    def map_point(pt: Sequence[float]) -> Point:
+        x = (float(pt[0]) - base[0]) * scale
+        y = (float(pt[1]) - base[1]) * scale
+        return (target[0] + x * ca - y * sa, target[1] + x * sa + y * ca)
+
+    out = copy.deepcopy(e)
+    out["id"] = new_id()
+    t = out["type"]
+    if t == "line":
+        out["a"], out["b"] = map_point(out["a"]), map_point(out["b"])
+    elif t in ("circle", "arc"):
+        out["c"] = map_point(out["c"])
+        out["r"] = out["r"] * abs(scale)
+        if t == "arc":
+            out["start"] = geom.norm_angle(out["start"] + rot)
+            out["end"] = geom.norm_angle(out["end"] + rot)
+    elif t in ("polyline", "hatch"):
+        out["pts"] = [map_point(p) for p in out["pts"]]
+        if t == "hatch":
+            out["angle"] = out["angle"] + rot
+            out["spacing"] = out["spacing"] * abs(scale)
+    elif t == "ellipse":
+        out["c"] = map_point(out["c"])
+        out["rx"] = out["rx"] * abs(scale)
+        out["ry"] = out["ry"] * abs(scale)
+        out["rot"] = out["rot"] + rot
+    elif t == "leader":
+        out["p1"], out["p2"] = map_point(out["p1"]), map_point(out["p2"])
+        out["h"] = out["h"] * abs(scale)
+    elif t in ("text", "surface"):
+        out["p"] = map_point(out["p"])
+        out["h"] = out["h"] * abs(scale)
+        out["rot"] = out["rot"] + rot
+    elif t == "fcf":
+        # Der Rahmen nach ISO 1101 steht immer waagerecht -- nicht mitdrehen
+        out["p"] = map_point(out["p"])
+        out["h"] = out["h"] * abs(scale)
+    elif t == "point":
+        out["p"] = map_point(out["p"])
+    elif t == "dim":
+        out["p1"], out["p2"] = map_point(out["p1"]), map_point(out["p2"])
+        out["pos"] = map_point(out["pos"])
+        if out.get("center"):
+            out["center"] = map_point(out["center"])
+        out["h"] = out["h"] * abs(scale)
+    elif t == "insert":
+        out["p"] = map_point(out["p"])
+        out["rot"] = out["rot"] + rot
+        out["scale"] = out["scale"] * scale
+    return out
 
 
 def polyline_segments(e: Dict[str, Any]):
@@ -374,6 +548,8 @@ def outline_points(e: Dict[str, Any], sagitta: float = 0.05) -> List[Point]:
         return geom.flatten_arc(e["c"], e["r"], 0.0, 360.0, sagitta, 16)[:-1]
     if t == "arc":
         return geom.flatten_arc(e["c"], e["r"], e["start"], e["end"], sagitta)
+    if t == "ellipse":
+        return ellipse_points(e, sagitta)
     if t in ("polyline", "hatch"):
         pts: List[Point] = []
         for seg in polyline_segments(e):
@@ -388,3 +564,24 @@ def outline_points(e: Dict[str, Any], sagitta: float = 0.05) -> List[Point]:
             pts = list(e["pts"])
         return pts
     return entity_points(e)
+
+
+def ellipse_points(e: Dict[str, Any], sagitta: float = 0.05) -> List[Point]:
+    """Ellipse als Polygonzug -- Schrittweite nach dem groesseren Halbmesser."""
+    c, rx, ry = e["c"], e["rx"], e["ry"]
+    start, end = float(e.get("start", 0.0)), float(e.get("end", 360.0))
+    sweep = end - start
+    if abs(sweep) < 1e-9:
+        sweep = 360.0
+    r = max(rx, ry)
+    ratio = max(0.0, min(1.0, 1.0 - sagitta / r)) if r > sagitta else 0.0
+    step = math.degrees(2.0 * math.acos(ratio)) if ratio < 1.0 else 5.0
+    n = max(16, int(math.ceil(abs(sweep) / max(step, 0.5))))
+    rot = math.radians(float(e.get("rot", 0.0)))
+    ca, sa = math.cos(rot), math.sin(rot)
+    out: List[Point] = []
+    for i in range(n + 1):
+        a = math.radians(start + sweep * i / n)
+        x, y = rx * math.cos(a), ry * math.sin(a)
+        out.append((c[0] + x * ca - y * sa, c[1] + x * sa + y * ca))
+    return out
