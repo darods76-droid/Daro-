@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DARO-CAD – Technische Zeichnungen (eigenständig)</title>
+<title>DARO-CAD</title>
 <style>
 /* DARO-CAD -- Oberflaeche */
 :root {
@@ -237,6 +237,49 @@ dialog h3 { margin: 0 0 12px; }
   .tools { width: 112px; flex-basis: 112px; }
 }
 
+/* ---- Startbildschirm ---- */
+.welcome {
+  position: absolute; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(22, 32, 46, .55); backdrop-filter: blur(3px);
+  padding: 24px;
+}
+.welcome[hidden] { display: none; }
+
+.welcome-card {
+  background: #fff; border-radius: 12px; padding: 26px 28px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .34);
+  max-width: 620px; width: 100%;
+}
+.welcome-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 20px; }
+.welcome-mark { font-size: 30px; color: #38bdf8; line-height: 1; }
+.welcome-card h2 { margin: 0 0 4px; font-size: 21px; letter-spacing: .2px; }
+.welcome-card h2 + p, .welcome-head p { margin: 0; color: var(--muted); font-size: 13px; }
+
+.welcome-choices { display: grid; gap: 10px; }
+.welcome-choices button {
+  display: block; width: 100%; text-align: left; cursor: pointer; font: inherit;
+  background: #f7f9fc; border: 1px solid var(--line); border-radius: 9px;
+  padding: 13px 15px; color: var(--ink);
+  transition: background .12s, border-color .12s, transform .06s;
+}
+.welcome-choices button:hover {
+  background: var(--accent-soft); border-color: var(--accent);
+}
+.welcome-choices button:active { transform: translateY(1px); }
+.welcome-choices b { display: block; font-size: 14.5px; margin-bottom: 3px; }
+.welcome-choices span { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+
+.welcome-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line);
+}
+.welcome-foot .check { margin: 0; }
+
+@media (max-width: 640px) {
+  .welcome-foot { flex-direction: column; align-items: flex-start; }
+}
+
 </style>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230f172a'/><path d='M7 24 L16 8 L25 24' stroke='%2338bdf8' stroke-width='2.5' fill='none'/><path d='M11 19h10' stroke='%23f59e0b' stroke-width='2'/></svg>">
 </head>
@@ -270,6 +313,9 @@ dialog h3 { margin: 0 0 12px; }
   </div>
 
   <div class="spacer"></div>
+  <button class="btn" id="btnWelcome" title="Startbildschirm mit Beispiel">Einstieg</button>
+  <button class="btn" id="btnSaveApp" hidden
+          title="Die App als Datei auf diesen Rechner speichern – dort läuft sie auch ohne Internet und kann zusätzlich DXF">App speichern</button>
   <div class="freecad-badge" id="freecadBadge" title="Status der FreeCAD-Kopplung">FreeCAD: …</div>
 </header>
 
@@ -288,6 +334,42 @@ dialog h3 { margin: 0 0 12px; }
     </div>
 
     <div class="toast" id="toast" hidden></div>
+
+    <div class="welcome" id="welcome" hidden>
+      <div class="welcome-card">
+        <div class="welcome-head">
+          <span class="welcome-mark">◺</span>
+          <div>
+            <h2>DARO&#8209;CAD</h2>
+            <p>Technische Zeichnungen nach DIN – womit möchtest du anfangen?</p>
+          </div>
+        </div>
+
+        <div class="welcome-choices">
+          <button data-start="example" id="welcomeExample">
+            <b>Beispiel ansehen</b>
+            <span>Eine fertige Zeichnung mit drei Ansichten, Bemaßung und
+              Schriftfeld. Am schnellsten zu verstehen.</span>
+          </button>
+          <button data-start="blank">
+            <b>Leeres Blatt</b>
+            <span>Gleich selbst zeichnen. Unten steht immer, welchen Punkt
+              die App als Nächstes erwartet.</span>
+          </button>
+          <button data-start="help">
+            <b>Kurz erklärt</b>
+            <span>Maus, Tasten und Koordinateneingabe auf einen Blick.</span>
+          </button>
+        </div>
+
+        <div class="welcome-foot">
+          <label class="check">
+            <input type="checkbox" id="welcomeAgain"> Beim nächsten Mal wieder zeigen
+          </label>
+          <span class="muted small">Jederzeit wieder über „Einstieg“ oben rechts</span>
+        </div>
+      </div>
+    </div>
   </section>
 
   <aside class="panel">
@@ -456,6 +538,7 @@ dialog h3 { margin: 0 0 12px; }
 
 <input type="file" id="fileInput" accept=".dxf,.json,.FCStd,.step,.stp" hidden>
 
+<script type="application/json" id="beispielZeichnung">{"version":1,"meta":{"title":"Lagerplatte","subtitle":"","drawingNumber":"DC-1001","revision":"A","date":"05.09.2026","author":"D. Rodriguez","approvedBy":"M. Keller","company":"DARO Konstruktion","material":"S235JR","weight":"0,81 kg","scale":"1:1","sheet":"A3","landscape":true,"sheetName":"1","sheetCount":"1","projection":"first","generalTolerance":"ISO 2768-mK","surface":"Ra 3,2","units":"mm"},"layers":[{"name":"Kontur","color":"#111111","lineweight":0.5,"linetype":"continuous","visible":true,"locked":false,"printable":true},{"name":"Verdeckt","color":"#8a6d3b","lineweight":0.25,"linetype":"dashed","visible":true,"locked":false,"printable":true},{"name":"Mittellinie","color":"#b03060","lineweight":0.25,"linetype":"center","visible":true,"locked":false,"printable":true},{"name":"Bemassung","color":"#1c6ea4","lineweight":0.25,"linetype":"continuous","visible":true,"locked":false,"printable":true},{"name":"Schraffur","color":"#4a7f4a","lineweight":0.25,"linetype":"continuous","visible":true,"locked":false,"printable":true},{"name":"Hilfslinie","color":"#999999","lineweight":0.25,"linetype":"continuous","visible":true,"locked":false,"printable":false},{"name":"Text","color":"#111111","lineweight":0.25,"linetype":"continuous","visible":true,"locked":false,"printable":true}],"entities":[{"type":"line","a":[100.0,155.0],"b":[200.0,155.0],"layer":"Kontur","view":"front","id":"02ebc0b802fd"},{"type":"line","a":[200.0,155.0],"b":[202.22520933956312,155.25072087818177],"layer":"Kontur","view":"front","id":"4f34c8a90aba"},{"type":"line","a":[202.22520933956315,155.25072087818177],"b":[204.33883739117562,155.99031132097582],"layer":"Kontur","view":"front","id":"7623a434be2f"},{"type":"line","a":[204.3388373911756,155.99031132097582],"b":[206.23489801858733,157.1816851753197],"layer":"Kontur","view":"front","id":"2de58e5b5b8f"},{"type":"line","a":[206.23489801858733,157.1816851753197],"b":[207.8183148246803,158.76510198141267],"layer":"Kontur","view":"front","id":"95034de3b00d"},{"type":"line","a":[207.8183148246803,158.76510198141267],"b":[209.0096886790242,160.6611626088244],"layer":"Kontur","view":"front","id":"20a2afbeebce"},{"type":"line","a":[209.00968867902418,160.6611626088244],"b":[209.74927912181823,162.77479066043685],"layer":"Kontur","view":"front","id":"dfaee8513e08"},{"type":"line","a":[209.74927912181823,162.77479066043685],"b":[210.0,165.0],"layer":"Kontur","view":"front","id":"a14fd2d922b6"},{"type":"line","a":[210.0,165.0],"b":[210.0,215.0],"layer":"Kontur","view":"front","id":"77aa50bf9c60"},{"type":"line","a":[209.74927912181823,217.22520933956315],"b":[210.0,215.0],"layer":"Kontur","view":"front","id":"e0d154bad5ec"},{"type":"line","a":[209.00968867902418,219.3388373911756],"b":[209.74927912181823,217.22520933956315],"layer":"Kontur","view":"front","id":"17c9c01fba31"},{"type":"line","a":[207.8183148246803,221.23489801858733],"b":[209.00968867902418,219.3388373911756],"layer":"Kontur","view":"front","id":"73fb5af96d49"},{"type":"line","a":[206.23489801858733,222.8183148246803],"b":[207.8183148246803,221.23489801858733],"layer":"Kontur","view":"front","id":"5909c7ae0acc"},{"type":"line","a":[204.3388373911756,224.00968867902418],"b":[206.23489801858733,222.8183148246803],"layer":"Kontur","view":"front","id":"5d57c21411e5"},{"type":"line","a":[202.22520933956315,224.74927912181823],"b":[204.3388373911756,224.00968867902418],"layer":"Kontur","view":"front","id":"946e4d223091"},{"type":"line","a":[200.0,225.0],"b":[202.22520933956315,224.74927912181823],"layer":"Kontur","view":"front","id":"bfc5185e2403"},{"type":"line","a":[100.0,225.0],"b":[200.0,225.0],"layer":"Kontur","view":"front","id":"cbe680b9fcd9"},{"type":"line","a":[97.77479066043685,224.74927912181823],"b":[100.0,225.0],"layer":"Kontur","view":"front","id":"2f0bd4f67d99"},{"type":"line","a":[95.66116260882441,224.00968867902418],"b":[97.77479066043685,224.74927912181823],"layer":"Kontur","view":"front","id":"ae4bcd2c1c48"},{"type":"line","a":[93.76510198141267,222.8183148246803],"b":[95.66116260882441,224.00968867902418],"layer":"Kontur","view":"front","id":"8b228b31b563"},{"type":"line","a":[92.1816851753197,221.23489801858733],"b":[93.76510198141267,222.8183148246803],"layer":"Kontur","view":"front","id":"b31438abccb6"},{"type":"line","a":[90.9903113209758,219.3388373911756],"b":[92.1816851753197,221.23489801858733],"layer":"Kontur","view":"front","id":"3d2b79ceab3a"},{"type":"line","a":[90.25072087818177,217.22520933956315],"b":[90.9903113209758,219.3388373911756],"layer":"Kontur","view":"front","id":"4860d8ec05cf"},{"type":"line","a":[90.0,215.0],"b":[90.25072087818177,217.22520933956315],"layer":"Kontur","view":"front","id":"43be9a832c71"},{"type":"line","a":[90.0,165.0],"b":[90.0,215.0],"layer":"Kontur","view":"front","id":"e6f2681a7aae"},{"type":"line","a":[90.0,165.0],"b":[90.25072087818177,162.77479066043685],"layer":"Kontur","view":"front","id":"3ed609b9cd0f"},{"type":"line","a":[90.25072087818177,162.77479066043685],"b":[90.9903113209758,160.6611626088244],"layer":"Kontur","view":"front","id":"f638bc8f6729"},{"type":"line","a":[90.9903113209758,160.6611626088244],"b":[92.1816851753197,158.76510198141267],"layer":"Kontur","view":"front","id":"1be1b7859e18"},{"type":"line","a":[92.1816851753197,158.76510198141267],"b":[93.76510198141266,157.1816851753197],"layer":"Kontur","view":"front","id":"40d1d8ea5d4a"},{"type":"line","a":[93.76510198141266,157.1816851753197],"b":[95.66116260882441,155.99031132097582],"layer":"Kontur","view":"front","id":"9a6efdf64166"},{"type":"line","a":[95.66116260882441,155.99031132097582],"b":[97.77479066043685,155.25072087818177],"layer":"Kontur","view":"front","id":"d3da6f90d1b6"},{"type":"line","a":[97.77479066043685,155.25072087818177],"b":[100.0,155.0],"layer":"Kontur","view":"front","id":"b746cc1d5571"},{"type":"line","a":[131.59110991546882,186.89417145876973],"b":[131.89733833648572,188.4336856933594],"layer":"Kontur","view":"front","id":"a2db711f398c"},{"type":"line","a":[131.08655439013543,185.40779881161893],"b":[131.59110991546882,186.89417145876973],"layer":"Kontur","view":"front","id":"e601aa515655"},{"type":"line","a":[130.39230484541326,184.0],"b":[131.08655439013543,185.40779881161893],"layer":"Kontur","view":"front","id":"e8037c0b5dd1"},{"type":"line","a":[129.52024008349483,182.69486285189535],"b":[130.39230484541326,184.0],"layer":"Kontur","view":"front","id":"06f50768f263"},{"type":"line","a":[128.48528137423858,181.51471862576142],"b":[129.52024008349483,182.69486285189535],"layer":"Kontur","view":"front","id":"e12ebc475d94"},{"type":"line","a":[127.30513714810463,180.47975991650517],"b":[128.48528137423858,181.51471862576142],"layer":"Kontur","view":"front","id":"65681f84683d"},{"type":"line","a":[126.0,179.60769515458674],"b":[127.30513714810463,180.47975991650517],"layer":"Kontur","view":"front","id":"7e451850b0a9"},{"type":"line","a":[124.59220118838107,178.91344560986457],"b":[126.0,179.60769515458674],"layer":"Kontur","view":"front","id":"e46108546971"},{"type":"line","a":[123.10582854123024,178.40889008453118],"b":[124.59220118838107,178.91344560986457],"layer":"Kontur","view":"front","id":"cd63fee1226c"},{"type":"line","a":[121.56631430664062,178.10266166351428],"b":[123.10582854123024,178.40889008453118],"layer":"Kontur","view":"front","id":"624e9775419a"},{"type":"line","a":[120.0,178.0],"b":[121.5663143066406,178.10266166351428],"layer":"Kontur","view":"front","id":"c88e652930a2"},{"type":"line","a":[118.43368569335938,178.10266166351428],"b":[120.0,178.0],"layer":"Kontur","view":"front","id":"45f436f47384"},{"type":"line","a":[116.89417145876975,178.40889008453118],"b":[118.43368569335938,178.10266166351428],"layer":"Kontur","view":"front","id":"473d7c0bc25b"},{"type":"line","a":[115.40779881161893,178.91344560986457],"b":[116.89417145876975,178.40889008453118],"layer":"Kontur","view":"front","id":"90778a543f09"},{"type":"line","a":[114.0,179.60769515458674],"b":[115.40779881161893,178.91344560986457],"layer":"Kontur","view":"front","id":"5a6bd9276247"},{"type":"line","a":[112.69486285189535,180.47975991650517],"b":[114.0,179.60769515458674],"layer":"Kontur","view":"front","id":"f7db4a5925e2"},{"type":"line","a":[111.51471862576142,181.51471862576142],"b":[112.69486285189535,180.47975991650517],"layer":"Kontur","view":"front","id":"eb9e641bbfd2"},{"type":"line","a":[110.47975991650517,182.69486285189535],"b":[111.51471862576142,181.51471862576142],"layer":"Kontur","view":"front","id":"2752d9c22bc2"},{"type":"line","a":[109.60769515458674,184.0],"b":[110.47975991650517,182.69486285189535],"layer":"Kontur","view":"front","id":"23c2e78cf461"},{"type":"line","a":[108.91344560986457,185.40779881161893],"b":[109.60769515458674,184.0],"layer":"Kontur","view":"front","id":"71f372575515"},{"type":"line","a":[108.40889008453118,186.89417145876976],"b":[108.91344560986457,185.40779881161893],"layer":"Kontur","view":"front","id":"c1eed12cd13e"},{"type":"line","a":[108.10266166351428,188.4336856933594],"b":[108.40889008453118,186.89417145876976],"layer":"Kontur","view":"front","id":"0599ae13144b"},{"type":"line","a":[108.0,190.0],"b":[108.10266166351428,188.4336856933594],"layer":"Kontur","view":"front","id":"519ff0de309e"},{"type":"line","a":[108.0,190.0],"b":[108.10266166351428,191.56631430664063],"layer":"Kontur","view":"front","id":"fe45d2518057"},{"type":"line","a":[108.10266166351428,191.5663143066406],"b":[108.40889008453118,193.10582854123027],"layer":"Kontur","view":"front","id":"db282894cb91"},{"type":"line","a":[108.40889008453118,193.10582854123027],"b":[108.91344560986457,194.59220118838107],"layer":"Kontur","view":"front","id":"d165f4b9c8b4"},{"type":"line","a":[108.91344560986457,194.59220118838107],"b":[109.60769515458674,196.0],"layer":"Kontur","view":"front","id":"d1a6f30ad9ca"},{"type":"line","a":[109.60769515458674,196.0],"b":[110.47975991650519,197.30513714810465],"layer":"Kontur","view":"front","id":"1102dfe1d4b7"},{"type":"line","a":[110.47975991650517,197.30513714810465],"b":[111.51471862576143,198.48528137423858],"layer":"Kontur","view":"front","id":"054b827753b8"},{"type":"line","a":[111.51471862576143,198.48528137423858],"b":[112.69486285189535,199.52024008349483],"layer":"Kontur","view":"front","id":"467208e1c45f"},{"type":"line","a":[112.69486285189535,199.52024008349483],"b":[114.0,200.39230484541326],"layer":"Kontur","view":"front","id":"d71a9f43e6df"},{"type":"line","a":[114.0,200.39230484541326],"b":[115.40779881161892,201.08655439013543],"layer":"Kontur","view":"front","id":"910fbb232cb3"},{"type":"line","a":[115.40779881161893,201.08655439013543],"b":[116.89417145876976,201.59110991546882],"layer":"Kontur","view":"front","id":"981c60196a23"},{"type":"line","a":[116.89417145876975,201.59110991546882],"b":[118.43368569335938,201.89733833648572],"layer":"Kontur","view":"front","id":"7d1dfb4b79b9"},{"type":"line","a":[118.43368569335938,201.89733833648572],"b":[120.0,202.0],"layer":"Kontur","view":"front","id":"4c455eed93df"},{"type":"line","a":[120.0,202.0],"b":[121.56631430664062,201.89733833648572],"layer":"Kontur","view":"front","id":"bee1be894749"},{"type":"line","a":[121.56631430664062,201.89733833648572],"b":[123.10582854123025,201.59110991546882],"layer":"Kontur","view":"front","id":"341f8f76686d"},{"type":"line","a":[123.10582854123025,201.59110991546882],"b":[124.59220118838107,201.08655439013543],"layer":"Kontur","view":"front","id":"c0daeed88d64"},{"type":"line","a":[124.59220118838107,201.08655439013543],"b":[126.0,200.39230484541326],"layer":"Kontur","view":"front","id":"06546169a30e"},{"type":"line","a":[126.0,200.39230484541326],"b":[127.30513714810465,199.52024008349483],"layer":"Kontur","view":"front","id":"381491a0b78f"},{"type":"line","a":[127.30513714810465,199.52024008349483],"b":[128.48528137423858,198.48528137423858],"layer":"Kontur","view":"front","id":"e018003c160e"},{"type":"line","a":[128.48528137423858,198.48528137423858],"b":[129.52024008349483,197.30513714810465],"layer":"Kontur","view":"front","id":"8a18071cba4e"},{"type":"line","a":[129.52024008349483,197.30513714810465],"b":[130.39230484541326,196.0],"layer":"Kontur","view":"front","id":"1c9323ea6af5"},{"type":"line","a":[130.39230484541326,196.0],"b":[131.08655439013543,194.59220118838107],"layer":"Kontur","view":"front","id":"54009dce0ce8"},{"type":"line","a":[131.08655439013543,194.59220118838107],"b":[131.59110991546882,193.10582854123027],"layer":"Kontur","view":"front","id":"cd3918ae50c0"},{"type":"line","a":[131.59110991546882,193.10582854123027],"b":[131.89733833648572,191.5663143066406],"layer":"Kontur","view":"front","id":"d8e8e9cf540f"},{"type":"line","a":[131.89733833648572,191.5663143066406],"b":[132.0,190.0],"layer":"Kontur","view":"front","id":"282083cd77c0"},{"type":"line","a":[131.89733833648572,188.4336856933594],"b":[132.0,190.0],"layer":"Kontur","view":"front","id":"4520462e2004"},{"type":"line","a":[191.59110991546882,186.89417145876973],"b":[191.89733833648572,188.4336856933594],"layer":"Kontur","view":"front","id":"235f3a1daa7e"},{"type":"line","a":[191.08655439013546,185.40779881161893],"b":[191.59110991546882,186.89417145876973],"layer":"Kontur","view":"front","id":"f7da03ec59c1"},{"type":"line","a":[190.39230484541326,184.0],"b":[191.08655439013546,185.40779881161893],"layer":"Kontur","view":"front","id":"cdb105077840"},{"type":"line","a":[189.52024008349483,182.69486285189535],"b":[190.39230484541326,184.0],"layer":"Kontur","view":"front","id":"ae7f9c0759bc"},{"type":"line","a":[188.48528137423858,181.51471862576142],"b":[189.52024008349483,182.69486285189535],"layer":"Kontur","view":"front","id":"b97034192a77"},{"type":"line","a":[187.30513714810462,180.47975991650517],"b":[188.48528137423858,181.51471862576142],"layer":"Kontur","view":"front","id":"029489a4e37e"},{"type":"line","a":[186.0,179.60769515458674],"b":[187.30513714810462,180.47975991650517],"layer":"Kontur","view":"front","id":"d6c79b2ee9ec"},{"type":"line","a":[184.59220118838107,178.91344560986454],"b":[186.0,179.60769515458674],"layer":"Kontur","view":"front","id":"d2d08aa71548"},{"type":"line","a":[183.1058285412302,178.40889008453118],"b":[184.59220118838107,178.91344560986457],"layer":"Kontur","view":"front","id":"3c604201592b"},{"type":"line","a":[181.5663143066406,178.10266166351428],"b":[183.10582854123024,178.40889008453118],"layer":"Kontur","view":"front","id":"406298f5b98c"},{"type":"line","a":[180.0,178.0],"b":[181.5663143066406,178.10266166351428],"layer":"Kontur","view":"front","id":"954b215196cd"},{"type":"line","a":[178.4336856933594,178.10266166351428],"b":[180.0,178.0],"layer":"Kontur","view":"front","id":"605175e64d6d"},{"type":"line","a":[176.89417145876973,178.40889008453118],"b":[178.4336856933594,178.10266166351428],"layer":"Kontur","view":"front","id":"1bfd9a6c20b7"},{"type":"line","a":[175.40779881161893,178.91344560986457],"b":[176.89417145876973,178.40889008453118],"layer":"Kontur","view":"front","id":"7dee74cd3c5e"},{"type":"line","a":[174.0,179.60769515458674],"b":[175.40779881161893,178.91344560986457],"layer":"Kontur","view":"front","id":"eac3ef7dabfc"},{"type":"line","a":[172.69486285189535,180.47975991650517],"b":[174.0,179.60769515458674],"layer":"Kontur","view":"front","id":"9fc18eec27a6"},{"type":"line","a":[171.51471862576142,181.51471862576142],"b":[172.69486285189535,180.47975991650517],"layer":"Kontur","view":"front","id":"1f4611053ba4"},{"type":"line","a":[170.47975991650517,182.69486285189535],"b":[171.51471862576142,181.51471862576142],"layer":"Kontur","view":"front","id":"0d03e7f8ca5e"},{"type":"line","a":[169.60769515458674,184.0],"b":[170.47975991650517,182.69486285189535],"layer":"Kontur","view":"front","id":"6f2e32e174aa"},{"type":"line","a":[168.91344560986454,185.40779881161893],"b":[169.60769515458674,184.0],"layer":"Kontur","view":"front","id":"129103ffbaa6"},{"type":"line","a":[168.40889008453118,186.89417145876976],"b":[168.91344560986454,185.40779881161893],"layer":"Kontur","view":"front","id":"9b354960de24"},{"type":"line","a":[168.10266166351428,188.4336856933594],"b":[168.40889008453118,186.89417145876976],"layer":"Kontur","view":"front","id":"d7659e6269ea"},{"type":"line","a":[168.0,190.0],"b":[168.10266166351428,188.4336856933594],"layer":"Kontur","view":"front","id":"871b6d4a8116"},{"type":"line","a":[168.0,190.0],"b":[168.10266166351428,191.5663143066406],"layer":"Kontur","view":"front","id":"2d990446be68"},{"type":"line","a":[168.10266166351428,191.5663143066406],"b":[168.40889008453118,193.10582854123027],"layer":"Kontur","view":"front","id":"31592ed885ee"},{"type":"line","a":[168.40889008453118,193.10582854123027],"b":[168.91344560986457,194.59220118838107],"layer":"Kontur","view":"front","id":"3a0be0bd7188"},{"type":"line","a":[168.91344560986457,194.59220118838107],"b":[169.60769515458674,196.0],"layer":"Kontur","view":"front","id":"0b5786dc4471"},{"type":"line","a":[169.60769515458674,196.0],"b":[170.47975991650517,197.30513714810468],"layer":"Kontur","view":"front","id":"74d362e0d178"},{"type":"line","a":[170.47975991650517,197.30513714810465],"b":[171.51471862576142,198.48528137423855],"layer":"Kontur","view":"front","id":"393118b85a6b"},{"type":"line","a":[171.51471862576142,198.48528137423858],"b":[172.69486285189535,199.52024008349483],"layer":"Kontur","view":"front","id":"1d2a5d9f9433"},{"type":"line","a":[172.69486285189535,199.52024008349483],"b":[174.0,200.39230484541326],"layer":"Kontur","view":"front","id":"de646d65bf78"},{"type":"line","a":[174.0,200.39230484541326],"b":[175.40779881161893,201.08655439013543],"layer":"Kontur","view":"front","id":"82e74386ed1f"},{"type":"line","a":[175.40779881161893,201.08655439013543],"b":[176.89417145876973,201.59110991546882],"layer":"Kontur","view":"front","id":"4822b0f3999e"},{"type":"line","a":[176.89417145876973,201.59110991546882],"b":[178.4336856933594,201.89733833648572],"layer":"Kontur","view":"front","id":"a01f85b79347"},{"type":"line","a":[178.4336856933594,201.89733833648572],"b":[180.0,202.0],"layer":"Kontur","view":"front","id":"7dfd05d4bdf1"},{"type":"line","a":[180.0,202.0],"b":[181.5663143066406,201.89733833648572],"layer":"Kontur","view":"front","id":"b8b88bbcd349"},{"type":"line","a":[181.5663143066406,201.89733833648572],"b":[183.10582854123024,201.59110991546882],"layer":"Kontur","view":"front","id":"149f8045b722"},{"type":"line","a":[183.10582854123027,201.59110991546882],"b":[184.59220118838107,201.08655439013543],"layer":"Kontur","view":"front","id":"c63e22c2a918"},{"type":"line","a":[184.59220118838107,201.08655439013546],"b":[186.0,200.39230484541326],"layer":"Kontur","view":"front","id":"292d4149bb1f"},{"type":"line","a":[186.0,200.39230484541326],"b":[187.30513714810465,199.52024008349483],"layer":"Kontur","view":"front","id":"433a8f137178"},{"type":"line","a":[187.30513714810465,199.52024008349483],"b":[188.48528137423858,198.48528137423858],"layer":"Kontur","view":"front","id":"c62b77cdc54f"},{"type":"line","a":[188.48528137423858,198.48528137423858],"b":[189.52024008349483,197.30513714810465],"layer":"Kontur","view":"front","id":"1908473bdfaf"},{"type":"line","a":[189.52024008349483,197.30513714810465],"b":[190.39230484541326,196.0],"layer":"Kontur","view":"front","id":"6d7eaab0bb38"},{"type":"line","a":[190.39230484541326,196.0],"b":[191.08655439013543,194.59220118838107],"layer":"Kontur","view":"front","id":"6c997d14849f"},{"type":"line","a":[191.08655439013543,194.59220118838107],"b":[191.59110991546882,193.10582854123027],"layer":"Kontur","view":"front","id":"da42c763fcbd"},{"type":"line","a":[191.59110991546882,193.10582854123027],"b":[191.89733833648572,191.5663143066406],"layer":"Kontur","view":"front","id":"3c8b2f4dc00d"},{"type":"line","a":[191.89733833648572,191.5663143066406],"b":[192.0,190.0],"layer":"Kontur","view":"front","id":"b9b12669965e"},{"type":"line","a":[191.89733833648572,188.4336856933594],"b":[192.0,190.0],"layer":"Kontur","view":"front","id":"8b4c3e583566"},{"type":"line","a":[103.0,190.0],"b":[137.0,190.0],"layer":"Mittellinie","view":"front","id":"607b409ca3e4"},{"type":"line","a":[120.0,173.0],"b":[120.0,207.0],"layer":"Mittellinie","view":"front","id":"d400596c8280"},{"type":"line","a":[163.0,190.0],"b":[197.0,190.0],"layer":"Mittellinie","view":"front","id":"a16a73d42d33"},{"type":"line","a":[180.0,173.0],"b":[180.0,207.0],"layer":"Mittellinie","view":"front","id":"62fc77953350"},{"type":"text","p":[150.0,146.0],"h":5.0,"text":"Vorderansicht","align":"center","layer":"Text","view":"front","id":"9447fb79fb4f","rot":0.0},{"type":"line","a":[210.0,111.0],"b":[210.0,125.0],"layer":"Kontur","view":"top","id":"b989ac81dc8b"},{"type":"line","a":[90.0,125.0],"b":[210.0,125.0],"layer":"Kontur","view":"top","id":"59a9a3ef683f"},{"type":"line","a":[90.0,111.0],"b":[210.0,111.0],"layer":"Kontur","view":"top","id":"9ed0b26f176a"},{"type":"line","a":[90.0,111.0],"b":[90.0,125.0],"layer":"Kontur","view":"top","id":"a1858abb41e4"},{"type":"line","a":[100.0,111.0],"b":[100.0,125.0],"layer":"Verdeckt","view":"top","id":"2e72dc9ad5e3"},{"type":"line","a":[108.0,111.0],"b":[108.0,125.0],"layer":"Verdeckt","view":"top","id":"3af3e151274e"},{"type":"line","a":[132.0,111.0],"b":[132.0,125.0],"layer":"Verdeckt","view":"top","id":"1de325c73782"},{"type":"line","a":[168.0,111.0],"b":[168.0,125.0],"layer":"Verdeckt","view":"top","id":"61c06a9c5598"},{"type":"line","a":[192.0,111.0],"b":[192.0,125.0],"layer":"Verdeckt","view":"top","id":"1c5d4b688817"},{"type":"line","a":[120.0,130.0],"b":[120.0,106.0],"layer":"Mittellinie","view":"top","id":"f80cb2da8bae"},{"type":"line","a":[180.0,130.0],"b":[180.0,106.0],"layer":"Mittellinie","view":"top","id":"3b0f242edf23"},{"type":"text","p":[150.0,102.0],"h":5.0,"text":"Draufsicht","align":"center","layer":"Text","view":"top","id":"a3af1e3998f2","rot":0.0},{"type":"line","a":[240.0,155.0],"b":[254.0,155.0],"layer":"Kontur","view":"left","id":"35704db83fda"},{"type":"line","a":[240.0,225.0],"b":[254.0,225.0],"layer":"Kontur","view":"left","id":"c230b202d582"},{"type":"line","a":[240.0,155.0],"b":[240.0,225.0],"layer":"Kontur","view":"left","id":"91e5bdb49d60"},{"type":"line","a":[254.0,155.0],"b":[254.0,225.0],"layer":"Kontur","view":"left","id":"dc9ce3015e95"},{"type":"line","a":[240.0,178.0],"b":[254.0,178.0],"layer":"Verdeckt","view":"left","id":"d01101367e9b"},{"type":"line","a":[240.0,202.0],"b":[254.0,202.0],"layer":"Verdeckt","view":"left","id":"bc73b7279b62"},{"type":"line","a":[235.0,190.0],"b":[259.0,190.0],"layer":"Mittellinie","view":"left","id":"f356898e52c3"},{"type":"line","a":[235.0,190.0],"b":[259.0,190.0],"layer":"Mittellinie","view":"left","id":"1d6322899c5c"},{"type":"text","p":[247.0,146.0],"h":5.0,"text":"Ansicht von links","align":"center","layer":"Text","view":"left","id":"5616e7c85caf","rot":0.0},{"type":"dim","kind":"linear","layer":"Bemassung","decimals":0,"p1":[90.0,155.0],"p2":[210.0,155.0],"pos":[150.0,133.0],"id":"80e3b05e9bbc","h":3.5,"prefix":"","suffix":""},{"type":"dim","kind":"linear","axis":"y","layer":"Bemassung","decimals":0,"p1":[210.0,155.0],"p2":[210.0,225.0],"pos":[232.0,190.0],"id":"5407f0c1f823","h":3.5,"prefix":"","suffix":""},{"type":"dim","kind":"linear","layer":"Bemassung","decimals":0,"p1":[120.0,190.0],"p2":[180.0,190.0],"pos":[150.0,243.0],"id":"f0d8a190c515","h":3.5,"prefix":"","suffix":""},{"type":"dim","kind":"diameter","layer":"Bemassung","decimals":0,"p1":[120.0,190.0],"p2":[111.51599999999999,198.484],"pos":[60.0,239.0],"id":"93de28bef21f","h":3.5,"prefix":"","suffix":""},{"type":"dim","kind":"radius","layer":"Bemassung","decimals":0,"p1":[100.0,165.0],"p2":[92.93,157.93],"pos":[58.0,137.0],"id":"ffaed0a3e220","h":3.5,"prefix":"","suffix":""},{"type":"text","p":[150.0,265.0],"h":3.5,"align":"center","layer":"Text","text":"Kanten gebrochen 0,5 x 45°","id":"0a07ede326ca","rot":0.0}],"solids":[{"name":"Koerper","height":14.0,"z0":0.0,"profile":{"outer":[[10.0,0.0],[110.0,0.0],[112.22520933956314,0.25072087818176136],[114.33883739117559,0.9903113209758061],[116.23489801858733,2.181685175319699],[117.8183148246803,3.765101981412662],[119.0096886790242,5.661162608824416],[119.74927912181823,7.774790660436853],[120.0,9.999999999999998],[120.0,60.0],[119.74927912181823,62.22520933956314],[119.0096886790242,64.33883739117559],[117.8183148246803,66.23489801858733],[116.23489801858733,67.8183148246803],[114.33883739117559,69.0096886790242],[112.22520933956315,69.74927912181823],[110.0,70.0],[10.0,70.0],[7.774790660436857,69.74927912181823],[5.6611626088244185,69.0096886790242],[3.765101981412667,67.8183148246803],[2.181685175319698,66.23489801858733],[0.9903113209758079,64.33883739117559],[0.25072087818176136,62.22520933956314],[-1.7763568394002505e-15,60.0],[0.0,10.0],[0.25072087818176136,7.774790660436857],[0.9903113209758061,5.661162608824419],[2.181685175319699,3.7651019814126654],[3.765101981412662,2.1816851753197017],[5.661162608824417,0.9903113209758079],[7.774790660436845,0.2507208781817649],[9.999999999999998,-1.7763568394002505e-15]],"holes":[[[41.897338336485724,33.43368569335938],[41.59110991546882,31.89417145876974],[41.08655439013544,30.407798811618925],[40.392304845413264,28.999999999999993],[39.52024008349482,27.69486285189535],[38.48528137423857,26.51471862576143],[37.305137148104635,25.479759916505174],[36.0,24.607695154586736],[34.59220118838107,23.913445609864556],[33.105828541230245,23.40889008453118],[31.566314306640614,23.102661663514276],[29.999999999999996,23.0],[28.43368569335938,23.102661663514276],[26.89417145876975,23.40889008453118],[25.407798811618925,23.91344560986456],[23.999999999999993,24.60769515458674],[22.69486285189535,25.47975991650518],[21.514718625761425,26.514718625761432],[20.479759916505177,27.69486285189535],[19.607695154586736,29.000000000000004],[18.91344560986456,30.407798811618925],[18.40889008453118,31.89417145876975],[18.102661663514276,33.43368569335938],[18.0,35.0],[18.102661663514276,36.56631430664062],[18.40889008453118,38.10582854123025],[18.91344560986456,39.59220118838108],[19.607695154586736,41.0],[20.47975991650518,42.30513714810465],[21.514718625761432,43.48528137423857],[22.69486285189535,44.520240083494826],[24.000000000000004,45.392304845413264],[25.407798811618925,46.08655439013544],[26.89417145876975,46.59110991546882],[28.43368569335938,46.897338336485724],[30.0,47.0],[31.56631430664062,46.897338336485724],[33.10582854123025,46.59110991546882],[34.592201188381075,46.08655439013544],[36.0,45.392304845413264],[37.30513714810465,44.520240083494826],[38.48528137423857,43.48528137423857],[39.520240083494826,42.30513714810465],[40.392304845413264,41.0],[41.08655439013544,39.592201188381075],[41.59110991546882,38.10582854123025],[41.897338336485724,36.56631430664062],[42.0,35.0]],[[101.89733833648572,33.43368569335938],[101.59110991546882,31.89417145876974],[101.08655439013545,30.407798811618925],[100.39230484541326,28.999999999999993],[99.52024008349483,27.69486285189535],[98.48528137423857,26.51471862576143],[97.30513714810463,25.479759916505174],[96.0,24.607695154586736],[94.59220118838107,23.913445609864556],[93.10582854123024,23.40889008453118],[91.56631430664062,23.102661663514276],[90.0,23.0],[88.43368569335938,23.102661663514276],[86.89417145876975,23.40889008453118],[85.40779881161893,23.91344560986456],[84.0,24.60769515458674],[82.69486285189535,25.47975991650518],[81.51471862576142,26.514718625761432],[80.47975991650517,27.69486285189535],[79.60769515458674,29.000000000000004],[78.91344560986455,30.407798811618925],[78.40889008453118,31.89417145876975],[78.10266166351428,33.43368569335938],[78.0,35.0],[78.10266166351428,36.56631430664062],[78.40889008453118,38.10582854123025],[78.91344560986457,39.59220118838108],[79.60769515458674,41.0],[80.47975991650517,42.30513714810465],[81.51471862576143,43.48528137423857],[82.69486285189535,44.520240083494826],[84.0,45.392304845413264],[85.40779881161893,46.08655439013544],[86.89417145876975,46.59110991546882],[88.43368569335938,46.897338336485724],[90.0,47.0],[91.56631430664062,46.897338336485724],[93.10582854123025,46.59110991546882],[94.59220118838108,46.08655439013544],[96.0,45.392304845413264],[97.30513714810465,44.520240083494826],[98.48528137423857,43.48528137423857],[99.52024008349483,42.30513714810465],[100.39230484541326,41.0],[101.08655439013543,39.592201188381075],[101.59110991546882,38.10582854123025],[101.89733833648572,36.56631430664062],[102.0,35.0]]]}}]}</script>
 <script type="module">
 // ---- geom.js --------------------------------------------------------
 const __m_geom = (function () {
@@ -3335,11 +3418,82 @@ const __m_api_local = (function () {
       data: toBase64(bytes), bytes: bytes.length };
   }
 
-  // -- unveraendert aus api.js -------------------------------------------------
+  // -- Dateien herausgeben -----------------------------------------------------
 
-  /** Base64-Antwort als Datei im Browser speichern. */
-  function download(filename, base64, mime) {
+  /**
+   * Laeuft die App als veroeffentlichte Seite (Artifact)?
+   *
+   * Dort sind Blob-Downloads wirkungslos; Dateien gehen ueber die Plattform
+   * heraus. Erkannt wird das an ``claude.use``, nicht an der Adresse -- die
+   * Adresse sagt nichts darueber, ob der Weg offensteht.
+   */
+  function isHosted() {
+    return typeof window !== "undefined" &&
+      typeof window.claude === "object" && window.claude !== null &&
+      typeof window.claude.use === "function";
+  }
+
+  // Endungen, die die Plattform beim Speichern annimmt (DXF ist nicht dabei).
+  const HOSTED_EXTENSIONS = new Set([
+    "pdf", "svg", "json", "html", "txt", "md", "csv", "zip",
+    "png", "jpg", "jpeg", "webp", "gif",
+  ]);
+
+  const extensionOf = (filename) => String(filename).split(".").pop().toLowerCase();
+
+  function hostedMessage(code, filename) {
+    switch (code) {
+      case "rejected_extension":
+      case "extension_not_enabled":
+        return `${extensionOf(filename).toUpperCase()} lässt sich in der Online-Fassung ` +
+          "nicht speichern. Bitte oben „App speichern“ anklicken – in der " +
+          "heruntergeladenen Datei geht es.";
+      case "too_large":
+        return "Die Datei ist zu groß zum Speichern.";
+      case "rate_limited":
+        return "Es ist bereits eine Abfrage offen. Bitte kurz warten.";
+      case "unavailable":
+      case "not_granted":
+      case "capability_disabled":
+      case "capability_removed":
+        return "Speichern ist in dieser Ansicht nicht möglich. Bitte oben " +
+          "„App speichern“ anklicken und die Datei örtlich öffnen.";
+      default:
+        return "Die Datei konnte nicht gespeichert werden.";
+    }
+  }
+
+  /** Eine Datei ueber die Plattform anbieten. */
+  async function saveHosted(filename, data) {
+    const downloads = await window.claude.use("downloads");
+    if (!downloads) {
+      const err = new Error(hostedMessage("unavailable", filename));
+      err.code = "unavailable";
+      throw err;
+    }
+    if (!HOSTED_EXTENSIONS.has(extensionOf(filename))) {
+      const err = new Error(hostedMessage("rejected_extension", filename));
+      err.code = "rejected_extension";
+      throw err;
+    }
+    try {
+      await downloads.save({ filename, data });
+      return { status: "saved" };
+    } catch (err) {
+      // Ein "Nein" des Nutzers ist kein Fehler -- nicht erneut nachfragen.
+      if (err && err.code === "declined") return { status: "declined" };
+      const out = new Error(hostedMessage(err && err.code, filename));
+      out.code = (err && err.code) || "unavailable";
+      throw out;
+    }
+  }
+
+  /** Datei im Browser speichern -- oertlich per Blob, online ueber die Plattform. */
+  async function download(filename, base64, mime) {
     const bytes = fromBase64(base64);
+    if (isHosted()) {
+      return saveHosted(filename, new Blob([bytes], { type: mime || "application/octet-stream" }));
+    }
     const url = URL.createObjectURL(new Blob([bytes], { type: mime || "application/octet-stream" }));
     const a = document.createElement("a");
     a.href = url;
@@ -3348,6 +3502,21 @@ const __m_api_local = (function () {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return { status: "saved" };
+  }
+
+  /** Die App selbst als HTML-Datei herausgeben (nur in der Online-Fassung sinnvoll). */
+  async function saveApp(html, filename = "DARO-CAD.html") {
+    if (isHosted()) return saveHosted(filename, html);
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return { status: "saved" };
   }
 
   function readFileAsBase64(file) {
@@ -3362,7 +3531,7 @@ const __m_api_local = (function () {
     });
   }
 
-  return { status, listFiles, load, save, solids, views, importFile, exportAs, download, readFileAsBase64 };
+  return { status, listFiles, load, save, solids, views, importFile, exportAs, isHosted, download, saveApp, readFileAsBase64 };
 })();
 
 // ---- render.js ------------------------------------------------------
@@ -3387,6 +3556,7 @@ const __m_render = (function () {
       this.hover = null;
       this.snapMarker = null;
       this.preview = null;          // {entities:[], hints:[]}
+      this.cursorHint = null;       // Sprechblase am Zeiger: naechster erwarteter Schritt
       this.cache = new Map();
       this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     }
@@ -3478,6 +3648,7 @@ const __m_render = (function () {
       }
 
       this.drawSelectionMarkers();
+      if (this.cursorHint) this.hint(this.cursorHint);
       if (this.snapMarker) this.drawSnap(this.snapMarker);
       ctx.restore();
     }
@@ -4662,6 +4833,11 @@ const __m_app = (function () {
   const { findSnap, DEFAULT_SNAPS } = __m_snap;
   const { View3D } = __m_view3d;
   const P = __m_prims;
+  // Kopie der unveraenderten Seite, solange die App das DOM noch nicht angefasst
+  // hat. Daraus entsteht spaeter die Datei hinter "App speichern".
+  const APP_HTML = typeof document !== "undefined"
+    ? "<!DOCTYPE html>\n" + document.documentElement.outerHTML : "";
+
   const ICONS = {
     select: "▹", line: "╱", polyline: "⌇", rect: "▭", circle: "◯", arc: "◜",
     point: "·", text: "T", hatch: "▨", dimlinear: "↔", dimaligned: "⤢",
@@ -4732,6 +4908,98 @@ const __m_app = (function () {
       this.renderLayers();
       this.syncMeta();
       this.setPrompt("");
+      this.setupWelcome();
+    }
+
+    // -- Startbildschirm -----------------------------------------------------
+
+    /** Eingebettete Beispielzeichnung, falls die Fassung eine mitbringt. */
+    exampleDrawing() {
+      const tag = document.getElementById("beispielZeichnung");
+      if (!tag) return null;
+      try {
+        return JSON.parse(tag.textContent);
+      } catch (err) {
+        return null;
+      }
+    }
+
+    setupWelcome() {
+      const overlay = document.getElementById("welcome");
+      if (!overlay) return;
+
+      const hasExample = !!this.exampleDrawing();
+      const exampleBtn = document.getElementById("welcomeExample");
+      if (exampleBtn && !hasExample) exampleBtn.hidden = true;
+
+      for (const btn of overlay.querySelectorAll("[data-start]")) {
+        btn.addEventListener("click", () => this.startWith(btn.dataset.start));
+      }
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) this.hideWelcome();
+      });
+
+      let seen = false;
+      try { seen = window.localStorage.getItem("darocad:welcomeSeen") === "1"; }
+      catch (err) { /* gesperrter Speicher: dann eben jedes Mal zeigen */ }
+      if (!seen) this.showWelcome();
+    }
+
+    showWelcome() {
+      const overlay = document.getElementById("welcome");
+      if (!overlay) return;
+      const again = document.getElementById("welcomeAgain");
+      if (again) {
+        // Standard: nach der ersten Auswahl nicht mehr zeigen. Nur wer das
+        // Haekchen setzt, bekommt den Startbildschirm jedes Mal wieder.
+        try { again.checked = window.localStorage.getItem("darocad:welcomeSeen") === "0"; }
+        catch (err) { again.checked = false; }
+      }
+      overlay.hidden = false;
+    }
+
+    hideWelcome() {
+      const overlay = document.getElementById("welcome");
+      if (overlay) overlay.hidden = true;
+      const again = document.getElementById("welcomeAgain");
+      try {
+        window.localStorage.setItem("darocad:welcomeSeen", again && again.checked ? "0" : "1");
+      } catch (err) { /* ohne Speicher erscheint der Startbildschirm wieder */ }
+    }
+
+    startWith(choice) {
+      this.hideWelcome();
+      if (choice === "help") {
+        document.getElementById("helpDialog").showModal();
+        return;
+      }
+      if (choice === "example") {
+        const data = this.exampleDrawing();
+        if (!data) { this.toast("Diese Fassung bringt kein Beispiel mit."); return; }
+        this.drawing.load(data);
+        this.selection.clear();
+        this.solids = [];
+        this.view3d.setSolids([]);
+        this.syncMeta();
+        this.renderLayers();
+        this.renderer.zoomSheet();
+        this.invalidate();
+        this.toast("Beispiel geladen. Mausrad zoomt, mittlere Taste verschiebt.", 6000);
+        return;
+      }
+      this.canvas.focus();
+    }
+
+    /** Die App selbst als Datei herausgeben (nur in der Online-Fassung angeboten). */
+    async saveApp() {
+      if (typeof API.saveApp !== "function") return;
+      try {
+        const res = await API.saveApp(APP_HTML, "DARO-CAD.html");
+        if (res && res.status === "saved") {
+          this.toast("DARO-CAD.html gespeichert. Die Datei doppelklicken – " +
+            "dort läuft die App auch ohne Internet und kann zusätzlich DXF.", 9000);
+        }
+      } catch (err) { this.toast(err.message, 9000); }
     }
 
     // -- Aufbau --------------------------------------------------------------
@@ -4841,6 +5109,9 @@ const __m_app = (function () {
             this.renderer.hover = hit ? hit.id : null;
           }
         }
+        // Solange ein Werkzeug laeuft, den naechsten Schritt am Zeiger mitfuehren
+        this.renderer.cursorHint = this.session.name === "select"
+          ? null : { k: "label", p, text: this.session.hint };
         this.invalidate();
       });
 
@@ -4946,6 +5217,7 @@ const __m_app = (function () {
 
     startTool(name) {
       if (!TOOLS[name]) return;
+      this.renderer.cursorHint = null;
       this.session.start(name);
       this.refreshUI();
       this.invalidate();
@@ -5181,6 +5453,18 @@ const __m_app = (function () {
 
       document.getElementById("btnExtrude").onclick = () => this.extrude();
       document.getElementById("btnViews").onclick = () => this.deriveViews();
+
+      const btnWelcome = document.getElementById("btnWelcome");
+      if (btnWelcome) btnWelcome.onclick = () => this.showWelcome();
+
+      const btnSaveApp = document.getElementById("btnSaveApp");
+      if (btnSaveApp) {
+        // Nur sinnvoll, wenn die App als veroeffentlichte Seite laeuft; oertlich
+        // hat der Nutzer die Datei ja bereits.
+        const hosted = typeof API.isHosted === "function" && API.isHosted();
+        btnSaveApp.hidden = !hosted;
+        btnSaveApp.onclick = () => this.saveApp();
+      }
     }
 
     renderLayers() {
@@ -5433,7 +5717,13 @@ const __m_app = (function () {
       try {
         const res = await API.exportAs(format, {
           document: this.drawing.toJSON(), solids: this.solids, withSheet: true });
-        API.download(res.filename, res.data, res.mime);
+        const saved = await API.download(res.filename, res.data, res.mime);
+        if (saved && saved.status === "declined") {
+          // Nutzer hat das Speichern abgelehnt -- nicht erneut nachfragen,
+          // aber auch die "Erzeuge ..."-Meldung nicht stehen lassen.
+          this.toast("Speichern abgebrochen.", 2500);
+          return;
+        }
         this.toast(`${res.filename} (${Math.round(res.bytes / 1024)} kB) gespeichert.`);
       } catch (err) { this.toast(err.message, 9000); }
     }

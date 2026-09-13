@@ -215,11 +215,82 @@ export async function exportAs(format, payload) {
     data: toBase64(bytes), bytes: bytes.length };
 }
 
-// -- unveraendert aus api.js -------------------------------------------------
+// -- Dateien herausgeben -----------------------------------------------------
 
-/** Base64-Antwort als Datei im Browser speichern. */
-export function download(filename, base64, mime) {
+/**
+ * Laeuft die App als veroeffentlichte Seite (Artifact)?
+ *
+ * Dort sind Blob-Downloads wirkungslos; Dateien gehen ueber die Plattform
+ * heraus. Erkannt wird das an ``claude.use``, nicht an der Adresse -- die
+ * Adresse sagt nichts darueber, ob der Weg offensteht.
+ */
+export function isHosted() {
+  return typeof window !== "undefined" &&
+    typeof window.claude === "object" && window.claude !== null &&
+    typeof window.claude.use === "function";
+}
+
+// Endungen, die die Plattform beim Speichern annimmt (DXF ist nicht dabei).
+const HOSTED_EXTENSIONS = new Set([
+  "pdf", "svg", "json", "html", "txt", "md", "csv", "zip",
+  "png", "jpg", "jpeg", "webp", "gif",
+]);
+
+const extensionOf = (filename) => String(filename).split(".").pop().toLowerCase();
+
+function hostedMessage(code, filename) {
+  switch (code) {
+    case "rejected_extension":
+    case "extension_not_enabled":
+      return `${extensionOf(filename).toUpperCase()} lässt sich in der Online-Fassung ` +
+        "nicht speichern. Bitte oben „App speichern“ anklicken – in der " +
+        "heruntergeladenen Datei geht es.";
+    case "too_large":
+      return "Die Datei ist zu groß zum Speichern.";
+    case "rate_limited":
+      return "Es ist bereits eine Abfrage offen. Bitte kurz warten.";
+    case "unavailable":
+    case "not_granted":
+    case "capability_disabled":
+    case "capability_removed":
+      return "Speichern ist in dieser Ansicht nicht möglich. Bitte oben " +
+        "„App speichern“ anklicken und die Datei örtlich öffnen.";
+    default:
+      return "Die Datei konnte nicht gespeichert werden.";
+  }
+}
+
+/** Eine Datei ueber die Plattform anbieten. */
+async function saveHosted(filename, data) {
+  const downloads = await window.claude.use("downloads");
+  if (!downloads) {
+    const err = new Error(hostedMessage("unavailable", filename));
+    err.code = "unavailable";
+    throw err;
+  }
+  if (!HOSTED_EXTENSIONS.has(extensionOf(filename))) {
+    const err = new Error(hostedMessage("rejected_extension", filename));
+    err.code = "rejected_extension";
+    throw err;
+  }
+  try {
+    await downloads.save({ filename, data });
+    return { status: "saved" };
+  } catch (err) {
+    // Ein "Nein" des Nutzers ist kein Fehler -- nicht erneut nachfragen.
+    if (err && err.code === "declined") return { status: "declined" };
+    const out = new Error(hostedMessage(err && err.code, filename));
+    out.code = (err && err.code) || "unavailable";
+    throw out;
+  }
+}
+
+/** Datei im Browser speichern -- oertlich per Blob, online ueber die Plattform. */
+export async function download(filename, base64, mime) {
   const bytes = fromBase64(base64);
+  if (isHosted()) {
+    return saveHosted(filename, new Blob([bytes], { type: mime || "application/octet-stream" }));
+  }
   const url = URL.createObjectURL(new Blob([bytes], { type: mime || "application/octet-stream" }));
   const a = document.createElement("a");
   a.href = url;
@@ -228,6 +299,21 @@ export function download(filename, base64, mime) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return { status: "saved" };
+}
+
+/** Die App selbst als HTML-Datei herausgeben (nur in der Online-Fassung sinnvoll). */
+export async function saveApp(html, filename = "DARO-CAD.html") {
+  if (isHosted()) return saveHosted(filename, html);
+  const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return { status: "saved" };
 }
 
 export function readFileAsBase64(file) {

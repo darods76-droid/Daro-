@@ -5,21 +5,41 @@ Volumenkörper per Extrusion, normgerechte Ansichtsableitung mit verdeckten Kant
 und Export nach PDF, SVG und DXF. Mit installiertem **FreeCAD** kommen FCStd, STEP
 und STL dazu.
 
-## Schnellster Weg: eine Datei, ein Doppelklick
+## Drei Wege, die App zu benutzen
 
-**[DARO-CAD.html](DARO-CAD.html)** herunterladen und doppelklicken. Fertig.
+| Weg | Womit | Export |
+|---|---|---|
+| **Link anklicken** | nichts nötig, läuft sofort im Browser | PDF, SVG, DARO-CAD-Datei |
+| **[DARO-CAD.html](DARO-CAD.html) doppelklicken** | eine Datei, kein Python | zusätzlich **DXF** |
+| **`python3 -m daro_cad`** | Python 3.9+ | zusätzlich **FCStd, STEP, STL** (mit FreeCAD) |
 
-Kein Python, keine Installation, kein Server — die ganze App steckt in dieser einen
-Datei und läuft in jedem Browser. Zeichnen, bemaßen, extrudieren, Ansichten
-ableiten und der Export nach PDF, SVG und DXF funktionieren vollständig.
+Alle drei zeigen dieselbe App und rechnen gleich — die Ergebnisse stimmen
+byteweise überein (siehe *Tests*). Sie unterscheiden sich nur darin, welche
+Dateien sie herausgeben dürfen.
 
-> Nur FCStd, STEP und STL fehlen dort, denn dafür wird FreeCAD gebraucht. Diese
-> drei Einträge sind im Export-Menü ausgegraut.
+### Der schnellste Weg
 
-Zum Herunterladen: im Repository auf die Datei klicken, dann auf **Raw** bzw. den
-Download-Knopf — oder das ganze Projekt als ZIP laden und entpacken.
+Beim ersten Öffnen erscheint ein Startbildschirm mit drei Möglichkeiten:
+**Beispiel ansehen** (eine fertige Zeichnung mit drei Ansichten), **Leeres Blatt**
+oder **Kurz erklärt**. Später jederzeit über „Einstieg“ oben rechts erreichbar.
 
-## Voller Funktionsumfang: die Python-Fassung
+Solange ein Werkzeug aktiv ist, steht der nächste erwartete Schritt direkt am
+Mauszeiger — und zusätzlich unten links.
+
+### Die Datei-Fassung
+
+`DARO-CAD.html` herunterladen und doppelklicken. Die ganze App steckt in dieser
+einen Datei: kein Python, keine Installation, kein Server. Sie läuft auch ohne
+Internet und kann als einzige Browser-Fassung **DXF** schreiben, weil örtliche
+Downloads keiner Einschränkung unterliegen.
+
+Wer die App über den Link geöffnet hat, kommt mit einem Klick auf
+**„App speichern“** oben rechts an genau diese Datei.
+
+> FCStd, STEP und STL fehlen in beiden Browser-Fassungen, denn dafür wird FreeCAD
+> gebraucht. Diese Einträge sind im Export-Menü ausgegraut.
+
+### Die Python-Fassung
 
 ```
 python3 -m daro_cad

@@ -8,6 +8,11 @@ import { findSnap, DEFAULT_SNAPS } from "./snap.js";
 import { View3D } from "./view3d.js";
 import * as P from "./prims.js";
 
+// Kopie der unveraenderten Seite, solange die App das DOM noch nicht angefasst
+// hat. Daraus entsteht spaeter die Datei hinter "App speichern".
+const APP_HTML = typeof document !== "undefined"
+  ? "<!DOCTYPE html>\n" + document.documentElement.outerHTML : "";
+
 const ICONS = {
   select: "▹", line: "╱", polyline: "⌇", rect: "▭", circle: "◯", arc: "◜",
   point: "·", text: "T", hatch: "▨", dimlinear: "↔", dimaligned: "⤢",
@@ -78,6 +83,98 @@ class App {
     this.renderLayers();
     this.syncMeta();
     this.setPrompt("");
+    this.setupWelcome();
+  }
+
+  // -- Startbildschirm -----------------------------------------------------
+
+  /** Eingebettete Beispielzeichnung, falls die Fassung eine mitbringt. */
+  exampleDrawing() {
+    const tag = document.getElementById("beispielZeichnung");
+    if (!tag) return null;
+    try {
+      return JSON.parse(tag.textContent);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  setupWelcome() {
+    const overlay = document.getElementById("welcome");
+    if (!overlay) return;
+
+    const hasExample = !!this.exampleDrawing();
+    const exampleBtn = document.getElementById("welcomeExample");
+    if (exampleBtn && !hasExample) exampleBtn.hidden = true;
+
+    for (const btn of overlay.querySelectorAll("[data-start]")) {
+      btn.addEventListener("click", () => this.startWith(btn.dataset.start));
+    }
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) this.hideWelcome();
+    });
+
+    let seen = false;
+    try { seen = window.localStorage.getItem("darocad:welcomeSeen") === "1"; }
+    catch (err) { /* gesperrter Speicher: dann eben jedes Mal zeigen */ }
+    if (!seen) this.showWelcome();
+  }
+
+  showWelcome() {
+    const overlay = document.getElementById("welcome");
+    if (!overlay) return;
+    const again = document.getElementById("welcomeAgain");
+    if (again) {
+      // Standard: nach der ersten Auswahl nicht mehr zeigen. Nur wer das
+      // Haekchen setzt, bekommt den Startbildschirm jedes Mal wieder.
+      try { again.checked = window.localStorage.getItem("darocad:welcomeSeen") === "0"; }
+      catch (err) { again.checked = false; }
+    }
+    overlay.hidden = false;
+  }
+
+  hideWelcome() {
+    const overlay = document.getElementById("welcome");
+    if (overlay) overlay.hidden = true;
+    const again = document.getElementById("welcomeAgain");
+    try {
+      window.localStorage.setItem("darocad:welcomeSeen", again && again.checked ? "0" : "1");
+    } catch (err) { /* ohne Speicher erscheint der Startbildschirm wieder */ }
+  }
+
+  startWith(choice) {
+    this.hideWelcome();
+    if (choice === "help") {
+      document.getElementById("helpDialog").showModal();
+      return;
+    }
+    if (choice === "example") {
+      const data = this.exampleDrawing();
+      if (!data) { this.toast("Diese Fassung bringt kein Beispiel mit."); return; }
+      this.drawing.load(data);
+      this.selection.clear();
+      this.solids = [];
+      this.view3d.setSolids([]);
+      this.syncMeta();
+      this.renderLayers();
+      this.renderer.zoomSheet();
+      this.invalidate();
+      this.toast("Beispiel geladen. Mausrad zoomt, mittlere Taste verschiebt.", 6000);
+      return;
+    }
+    this.canvas.focus();
+  }
+
+  /** Die App selbst als Datei herausgeben (nur in der Online-Fassung angeboten). */
+  async saveApp() {
+    if (typeof API.saveApp !== "function") return;
+    try {
+      const res = await API.saveApp(APP_HTML, "DARO-CAD.html");
+      if (res && res.status === "saved") {
+        this.toast("DARO-CAD.html gespeichert. Die Datei doppelklicken – " +
+          "dort läuft die App auch ohne Internet und kann zusätzlich DXF.", 9000);
+      }
+    } catch (err) { this.toast(err.message, 9000); }
   }
 
   // -- Aufbau --------------------------------------------------------------
@@ -187,6 +284,9 @@ class App {
           this.renderer.hover = hit ? hit.id : null;
         }
       }
+      // Solange ein Werkzeug laeuft, den naechsten Schritt am Zeiger mitfuehren
+      this.renderer.cursorHint = this.session.name === "select"
+        ? null : { k: "label", p, text: this.session.hint };
       this.invalidate();
     });
 
@@ -292,6 +392,7 @@ class App {
 
   startTool(name) {
     if (!TOOLS[name]) return;
+    this.renderer.cursorHint = null;
     this.session.start(name);
     this.refreshUI();
     this.invalidate();
@@ -527,6 +628,18 @@ class App {
 
     document.getElementById("btnExtrude").onclick = () => this.extrude();
     document.getElementById("btnViews").onclick = () => this.deriveViews();
+
+    const btnWelcome = document.getElementById("btnWelcome");
+    if (btnWelcome) btnWelcome.onclick = () => this.showWelcome();
+
+    const btnSaveApp = document.getElementById("btnSaveApp");
+    if (btnSaveApp) {
+      // Nur sinnvoll, wenn die App als veroeffentlichte Seite laeuft; oertlich
+      // hat der Nutzer die Datei ja bereits.
+      const hosted = typeof API.isHosted === "function" && API.isHosted();
+      btnSaveApp.hidden = !hosted;
+      btnSaveApp.onclick = () => this.saveApp();
+    }
   }
 
   renderLayers() {
@@ -779,7 +892,13 @@ class App {
     try {
       const res = await API.exportAs(format, {
         document: this.drawing.toJSON(), solids: this.solids, withSheet: true });
-      API.download(res.filename, res.data, res.mime);
+      const saved = await API.download(res.filename, res.data, res.mime);
+      if (saved && saved.status === "declined") {
+        // Nutzer hat das Speichern abgelehnt -- nicht erneut nachfragen,
+        // aber auch die "Erzeuge ..."-Meldung nicht stehen lassen.
+        this.toast("Speichern abgebrochen.", 2500);
+        return;
+      }
       this.toast(`${res.filename} (${Math.round(res.bytes / 1024)} kB) gespeichert.`);
     } catch (err) { this.toast(err.message, 9000); }
   }

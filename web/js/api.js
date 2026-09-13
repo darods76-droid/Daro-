@@ -29,7 +29,7 @@ export const importFile = (filename, data) => call("/api/import", { filename, da
 export const exportAs = (format, payload) => call(`/api/export/${format}`, payload);
 
 /** Base64-Antwort als Datei im Browser speichern. */
-export function download(filename, base64, mime) {
+export async function download(filename, base64, mime) {
   const bin = atob(base64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -41,6 +41,7 @@ export function download(filename, base64, mime) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return { status: "saved" };
 }
 
 export function readFileAsBase64(file) {

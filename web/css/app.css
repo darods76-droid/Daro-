@@ -229,3 +229,46 @@ dialog h3 { margin: 0 0 12px; }
   .panel { width: 262px; flex-basis: 262px; }
   .tools { width: 112px; flex-basis: 112px; }
 }
+
+/* ---- Startbildschirm ---- */
+.welcome {
+  position: absolute; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(22, 32, 46, .55); backdrop-filter: blur(3px);
+  padding: 24px;
+}
+.welcome[hidden] { display: none; }
+
+.welcome-card {
+  background: #fff; border-radius: 12px; padding: 26px 28px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .34);
+  max-width: 620px; width: 100%;
+}
+.welcome-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 20px; }
+.welcome-mark { font-size: 30px; color: #38bdf8; line-height: 1; }
+.welcome-card h2 { margin: 0 0 4px; font-size: 21px; letter-spacing: .2px; }
+.welcome-card h2 + p, .welcome-head p { margin: 0; color: var(--muted); font-size: 13px; }
+
+.welcome-choices { display: grid; gap: 10px; }
+.welcome-choices button {
+  display: block; width: 100%; text-align: left; cursor: pointer; font: inherit;
+  background: #f7f9fc; border: 1px solid var(--line); border-radius: 9px;
+  padding: 13px 15px; color: var(--ink);
+  transition: background .12s, border-color .12s, transform .06s;
+}
+.welcome-choices button:hover {
+  background: var(--accent-soft); border-color: var(--accent);
+}
+.welcome-choices button:active { transform: translateY(1px); }
+.welcome-choices b { display: block; font-size: 14.5px; margin-bottom: 3px; }
+.welcome-choices span { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+
+.welcome-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line);
+}
+.welcome-foot .check { margin: 0; }
+
+@media (max-width: 640px) {
+  .welcome-foot { flex-direction: column; align-items: flex-start; }
+}

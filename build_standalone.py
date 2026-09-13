@@ -14,6 +14,7 @@ Aufruf:  python3 build_standalone.py
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -163,6 +164,19 @@ def bundle_module(name: str) -> str:
             f"}})();\n")
 
 
+def embedded_example() -> str:
+    """Beispielzeichnung mitliefern, damit der Startbildschirm sie ohne Netz zeigt."""
+    source = ROOT / "examples" / "lagerplatte.darocad.json"
+    if not source.is_file():
+        print("Hinweis: keine Beispielzeichnung gefunden -- Startbildschirm ohne Beispiel.")
+        return ""
+    data = json.loads(source.read_text(encoding="utf-8"))
+    # Kompakt schreiben; "</script>" darf im JSON nicht vorkommen
+    text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    text = text.replace("</", "<\\/")
+    return f'<script type="application/json" id="beispielZeichnung">{text}</script>'
+
+
 def build() -> int:
     html = (WEB / "index.html").read_text(encoding="utf-8")
     css = (WEB / "css" / "app.css").read_text(encoding="utf-8")
@@ -172,10 +186,13 @@ def build() -> int:
 
     html = html.replace('<link rel="stylesheet" href="css/app.css">',
                         f"<style>\n{css}\n</style>")
+    html = html.replace("<!-- BEISPIEL-PLATZHALTER -->", embedded_example())
     html = html.replace('<script type="module" src="js/app.js"></script>',
                         '<script type="module">\n' + script + "\n</script>")
+    # Kurzer, wiedererkennbarer Name -- er steht im Browser-Reiter und, wenn die
+    # Datei veroeffentlicht wird, in der Uebersicht.
     html = html.replace("<title>DARO-CAD – Technische Zeichnungen</title>",
-                        "<title>DARO-CAD – Technische Zeichnungen (eigenständig)</title>")
+                        "<title>DARO-CAD</title>")
 
     if "<style>" not in html or "__m_geom" not in html:
         print("Buendeln fehlgeschlagen: Platzhalter in index.html nicht gefunden.",

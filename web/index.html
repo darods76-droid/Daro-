@@ -37,6 +37,9 @@
   </div>
 
   <div class="spacer"></div>
+  <button class="btn" id="btnWelcome" title="Startbildschirm mit Beispiel">Einstieg</button>
+  <button class="btn" id="btnSaveApp" hidden
+          title="Die App als Datei auf diesen Rechner speichern – dort läuft sie auch ohne Internet und kann zusätzlich DXF">App speichern</button>
   <div class="freecad-badge" id="freecadBadge" title="Status der FreeCAD-Kopplung">FreeCAD: …</div>
 </header>
 
@@ -55,6 +58,42 @@
     </div>
 
     <div class="toast" id="toast" hidden></div>
+
+    <div class="welcome" id="welcome" hidden>
+      <div class="welcome-card">
+        <div class="welcome-head">
+          <span class="welcome-mark">◺</span>
+          <div>
+            <h2>DARO&#8209;CAD</h2>
+            <p>Technische Zeichnungen nach DIN – womit möchtest du anfangen?</p>
+          </div>
+        </div>
+
+        <div class="welcome-choices">
+          <button data-start="example" id="welcomeExample">
+            <b>Beispiel ansehen</b>
+            <span>Eine fertige Zeichnung mit drei Ansichten, Bemaßung und
+              Schriftfeld. Am schnellsten zu verstehen.</span>
+          </button>
+          <button data-start="blank">
+            <b>Leeres Blatt</b>
+            <span>Gleich selbst zeichnen. Unten steht immer, welchen Punkt
+              die App als Nächstes erwartet.</span>
+          </button>
+          <button data-start="help">
+            <b>Kurz erklärt</b>
+            <span>Maus, Tasten und Koordinateneingabe auf einen Blick.</span>
+          </button>
+        </div>
+
+        <div class="welcome-foot">
+          <label class="check">
+            <input type="checkbox" id="welcomeAgain"> Beim nächsten Mal wieder zeigen
+          </label>
+          <span class="muted small">Jederzeit wieder über „Einstieg“ oben rechts</span>
+        </div>
+      </div>
+    </div>
   </section>
 
   <aside class="panel">
@@ -223,6 +262,7 @@
 
 <input type="file" id="fileInput" accept=".dxf,.json,.FCStd,.step,.stp" hidden>
 
+<!-- BEISPIEL-PLATZHALTER -->
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

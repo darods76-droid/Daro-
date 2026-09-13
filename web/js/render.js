@@ -19,6 +19,7 @@ export class Renderer {
     this.hover = null;
     this.snapMarker = null;
     this.preview = null;          // {entities:[], hints:[]}
+    this.cursorHint = null;       // Sprechblase am Zeiger: naechster erwarteter Schritt
     this.cache = new Map();
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
   }
@@ -110,6 +111,7 @@ export class Renderer {
     }
 
     this.drawSelectionMarkers();
+    if (this.cursorHint) this.hint(this.cursorHint);
     if (this.snapMarker) this.drawSnap(this.snapMarker);
     ctx.restore();
   }
