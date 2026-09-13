@@ -21,10 +21,33 @@ Dateien sie herausgeben dürfen.
 
 Beim ersten Öffnen erscheint ein Startbildschirm mit drei Möglichkeiten:
 **Beispiel ansehen** (eine fertige Zeichnung mit drei Ansichten), **Leeres Blatt**
-oder **Kurz erklärt**. Später jederzeit über „Einstieg“ oben rechts erreichbar.
+oder **Kurz erklärt**. Später jederzeit über „Einstieg“ erreichbar.
 
-Solange ein Werkzeug aktiv ist, steht der nächste erwartete Schritt direkt am
-Mauszeiger — und zusätzlich unten links.
+Nach „Leeres Blatt“ ist das Linien-Werkzeug bereits gewählt — der erste Klick
+zeichnet. Solange ein Werkzeug aktiv ist, steht der nächste erwartete Schritt
+direkt am Mauszeiger und zusätzlich unten links.
+
+### Auf Handy und Tablet
+
+Die Oberfläche richtet sich nach der Bildschirmbreite, damit das Zeichenblatt
+immer den Großteil des Platzes bekommt:
+
+| Breite | Werkzeuge | Seitenleiste | Zeichenblatt |
+|---|---|---|---|
+| ab 1100 px | Leiste links | fest rechts | Rest |
+| 700–1100 px | Leiste links | Schublade über „Mehr“ | Rest |
+| unter 700 px | Leiste **unten**, wischbar | Schublade über „Mehr“ | **volle Breite** |
+
+Gemessener Anteil der Zeichenfläche an der Fensterbreite: Handy hochkant 100 %,
+Handy quer 86 %, Tablet 86 %, Laptop 71 %.
+
+**Mit den Fingern:** ein Finger tippt Punkte und zieht Auswahlfenster, zwei Finger
+schieben den Ausschnitt und zoomen. Während einer Zwei-Finger-Geste entsteht kein
+Element.
+
+Unten stehen die Grundformen zuerst: **Linie, Rechteck, Quadrat, Kreis, Bogen,
+Text** — sechs davon gleichzeitig sichtbar, jede Fläche mindestens 44 × 44 px.
+Der Rest folgt beim seitlichen Wischen.
 
 ### Die Datei-Fassung
 
@@ -66,7 +89,8 @@ schreiben und FCStd/STEP einlesen.
 ## Was die App kann
 
 **Zeichnen**
-Linie, Polylinie (mit Bögen), Rechteck, Kreis, Bogen, Punkt, Text und Schraffur.
+Linie, Polylinie (mit Bögen), Rechteck, Quadrat, Kreis, Bogen, Punkt, Text und
+Schraffur. Beim Rechteck erzwingt die Umschalttaste gleiche Seiten.
 Objektfang auf Endpunkt, Mittelpunkt, Zentrum, Quadrant, Schnittpunkt, Lot und
 Raster; Ortho- und Polarmodus; Auswahlfenster umschließend und kreuzend.
 
@@ -127,7 +151,7 @@ Die Befehlszeile unten nimmt Zahlen genauso entgegen wie Befehle:
 
 ### Tasten
 
-`L` Linie · `P` Polylinie · `R` Rechteck · `K` Kreis · `B` Bogen · `T` Text ·
+`L` Linie · `P` Polylinie · `R` Rechteck · `Q` Quadrat · `K` Kreis · `B` Bogen · `T` Text ·
 `H` Schraffur · `M` Maß · `V` Verschieben · `C` Kopieren · `D` Drehen ·
 `S` Stutzen · `E` Dehnen · `F` Runden · `Entf` Löschen · `Strg+A` alles wählen ·
 `Strg+Z` / `Strg+Y` rückgängig / wiederholen · `Strg+S` speichern ·

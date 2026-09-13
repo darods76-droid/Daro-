@@ -18,7 +18,7 @@ const ICONS = {
   point: "·", text: "T", hatch: "▨", dimlinear: "↔", dimaligned: "⤢",
   dimangular: "∠", dimradius: "⌀", measure: "⟺", move: "✥", copy: "⧉",
   rotate: "↻", mirror: "⇄", scale: "⤡", offset: "⇉", trim: "✂", extend: "⇥",
-  fillet: "◟", chamfer: "◺", explode: "⁂", erase: "␡",
+  fillet: "◟", chamfer: "◺", explode: "⁂", erase: "␡", square: "□",
 };
 
 const COMMANDS = {
@@ -31,9 +31,14 @@ const COMMANDS = {
   drehen: "rotate", d: "rotate", spiegeln: "mirror", sp: "mirror",
   skalieren: "scale", versatz: "offset", o: "offset", stutzen: "trim", s: "trim",
   dehnen: "extend", e: "extend", runden: "fillet", f: "fillet", fasen: "chamfer",
+  quadrat: "square", q: "square",
   auswahl: "select", esc: "select", aufloesen: "explode", "auflösen": "explode",
   loeschen: "erase", "löschen": "erase",
 };
+
+// Auf schmalen Geraeten zuerst das, womit man tatsaechlich anfaengt.
+const COMPACT_ORDER = ["line", "rect", "square", "circle", "arc", "text",
+  "select", "erase", "move", "polyline", "hatch", "dimlinear", "measure"];
 
 class App {
   constructor() {
@@ -50,6 +55,8 @@ class App {
     this.cursor = [0, 0];
     this.dirty = true;
     this.freecad = { available: false };
+    this.compact = null;              // wird von applyLayout() gesetzt
+    this.shiftKey = false;
 
     // Zeicheneinstellungen (aus der Seitenleiste)
     this.textHeight = 3.5;
@@ -62,7 +69,7 @@ class App {
     this.gridSnapStep = 10;
     this.diameterInput = false;
 
-    this.buildTools();
+    this.applyLayout();               // legt auch die Werkzeugleiste an
     this.buildSelects();
     this.bindCanvas();
     this.bindUI();
@@ -75,7 +82,11 @@ class App {
       this.renderProps();
     });
 
-    window.addEventListener("resize", () => { this.renderer.resize(); this.invalidate(); });
+    window.addEventListener("resize", () => {
+      this.applyLayout();
+      this.renderer.resize();
+      this.invalidate();
+    });
     this.renderer.resize();
     this.startDrawing();
     this.loop();
@@ -159,10 +170,14 @@ class App {
       this.renderLayers();
       this.renderer.zoomSheet();
       this.invalidate();
-      this.toast("Beispiel geladen. Mausrad zoomt, mittlere Taste verschiebt.", 6000);
+      this.toast("Beispiel geladen. Zum Zoomen Mausrad oder zwei Finger.", 6000);
       return;
     }
+    // Leeres Blatt: gleich mit dem Linien-Werkzeug beginnen, damit der erste
+    // Klick zeichnet und nicht erst etwas gesucht werden muss.
+    this.startTool("line");
     this.canvas.focus();
+    this.toast("Linie: zwei Punkte antippen. Werkzeug unten wechseln.", 6000);
   }
 
   /** Die App selbst als Datei herausgeben (nur in der Online-Fassung angeboten). */
@@ -179,9 +194,30 @@ class App {
 
   // -- Aufbau --------------------------------------------------------------
 
+  toolButton(name) {
+    const btn = document.createElement("button");
+    btn.className = "tool";
+    btn.dataset.tool = name;
+    btn.title = TOOLS[name].label;
+    btn.innerHTML = `<span class="ico">${ICONS[name] || "•"}</span>` +
+      `<span>${TOOLS[name].label}</span>`;
+    btn.addEventListener("click", () => this.startTool(name));
+    return btn;
+  }
+
   buildTools() {
     const host = document.getElementById("tools");
     host.innerHTML = "";
+
+    if (this.compact) {
+      // Waagerechte Leiste am unteren Rand: Grundformen zuerst, Rest beim Wischen
+      const rest = Object.keys(TOOLS).filter((n) => !COMPACT_ORDER.includes(n));
+      for (const name of [...COMPACT_ORDER, ...rest]) {
+        if (TOOLS[name]) host.appendChild(this.toolButton(name));
+      }
+      return;
+    }
+
     for (const group of TOOL_GROUPS) {
       const names = Object.keys(TOOLS).filter((n) => TOOLS[n].group === group);
       if (!names.length) continue;
@@ -189,17 +225,32 @@ class App {
       title.textContent = group === "Aendern" ? "Ändern"
         : group === "Bemassung" ? "Bemaßung" : group;
       host.appendChild(title);
-      for (const name of names) {
-        const btn = document.createElement("button");
-        btn.className = "tool";
-        btn.dataset.tool = name;
-        btn.innerHTML = `<span class="ico">${ICONS[name] || "•"}</span>` +
-          `<span>${TOOLS[name].label}</span>`;
-        btn.addEventListener("click", () => this.startTool(name));
-        host.appendChild(btn);
-      }
+      for (const name of names) host.appendChild(this.toolButton(name));
     }
   }
+
+  /** Schmaler Bildschirm? Dann Werkzeuge unten und Seitenleiste als Schublade. */
+  applyLayout() {
+    const compact = window.innerWidth <= 700;
+    if (compact === this.compact) return;
+    this.compact = compact;
+    document.body.classList.toggle("compact", compact);
+    if (!compact) this.closePanel();
+    this.buildTools();
+    this.refreshUI();
+  }
+
+  togglePanel(open) {
+    const panel = document.getElementById("panel");
+    const backdrop = document.getElementById("panelBackdrop");
+    if (!panel) return;
+    const show = open ?? !panel.classList.contains("open");
+    panel.classList.toggle("open", show);
+    if (backdrop) backdrop.hidden = !show;
+    if (show) this.view3d.draw();
+  }
+
+  closePanel() { this.togglePanel(false); }
 
   buildSelects() {
     const sheet = document.getElementById("metaSheet");
@@ -236,6 +287,28 @@ class App {
     const c = this.canvas;
     let panning = false, panLast = null, windowStart = null, downPoint = null;
 
+    // Fingerbedienung: ein Finger zeichnet, zwei Finger schieben und zoomen.
+    const pointers = new Map();       // pointerId -> [x, y] in Fensterkoordinaten
+    let gesture = null;               // letzter Abstand und Mittelpunkt
+    let gestureActive = false;        // solange gesetzt, wird kein Punkt gesetzt
+
+    const pinch = () => {
+      const pts = [...pointers.values()];
+      const dist = Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]);
+      const cx = (pts[0][0] + pts[1][0]) / 2;
+      const cy = (pts[0][1] + pts[1][1]) / 2;
+      if (gesture) {
+        const rect = c.getBoundingClientRect();
+        const factor = gesture.dist > 1 ? dist / gesture.dist : 1;
+        if (isFinite(factor) && factor > 0.2 && factor < 5) {
+          this.renderer.zoomAt([cx - rect.left, cy - rect.top], factor);
+        }
+        this.renderer.pan(cx - gesture.cx, cy - gesture.cy);
+        this.invalidate();
+      }
+      gesture = { dist, cx, cy };
+    };
+
     const modelAt = (evt) => {
       const rect = c.getBoundingClientRect();
       return this.renderer.toModel([evt.clientX - rect.left, evt.clientY - rect.top]);
@@ -245,6 +318,18 @@ class App {
 
     c.addEventListener("pointerdown", (e) => {
       c.focus();
+      this.shiftKey = e.shiftKey;
+      pointers.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pointers.size === 2) {
+        // Zweiter Finger: angefangene Eingabe verwerfen und in den Gestenmodus
+        gestureActive = true;
+        gesture = null;
+        windowStart = null;
+        this.renderer.preview = null;
+        this.invalidate();
+        return;
+      }
+      if (gestureActive) return;
       if (e.button === 1) {
         panning = true; panLast = [e.clientX, e.clientY];
         c.setPointerCapture(e.pointerId); e.preventDefault(); return;
@@ -259,6 +344,10 @@ class App {
     });
 
     c.addEventListener("pointermove", (e) => {
+      this.shiftKey = e.shiftKey;
+      if (pointers.has(e.pointerId)) pointers.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pointers.size >= 2) { pinch(); return; }
+      if (gestureActive) return;
       if (panning) {
         this.renderer.pan(e.clientX - panLast[0], e.clientY - panLast[1]);
         panLast = [e.clientX, e.clientY];
@@ -290,7 +379,17 @@ class App {
       this.invalidate();
     });
 
+    const endPointer = (e) => {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) gesture = null;
+      if (gestureActive && pointers.size === 0) gestureActive = false;
+    };
+    c.addEventListener("pointercancel", endPointer);
+
     c.addEventListener("pointerup", (e) => {
+      const wasGesture = gestureActive;
+      endPointer(e);
+      if (wasGesture) return;          // Ende einer Geste setzt keinen Punkt
       if (panning && e.button === 1) { panning = false; return; }
       if (e.button !== 0) return;
       const raw = modelAt(e);
@@ -467,7 +566,10 @@ class App {
       if (e.key === "Escape") { cmd.value = ""; this.session.cancel(); this.invalidate(); }
     });
 
+    window.addEventListener("keyup", (e) => { this.shiftKey = e.shiftKey; });
+
     window.addEventListener("keydown", (e) => {
+      this.shiftKey = e.shiftKey;
       const inField = e.target.matches("input, select, textarea") && e.target.id !== "cmd";
       if (e.key === "F1") { e.preventDefault(); document.getElementById("helpDialog").showModal(); return; }
       if (e.key === "F3") { e.preventDefault(); this.toggle("tglSnap"); return; }
@@ -631,6 +733,23 @@ class App {
 
     const btnWelcome = document.getElementById("btnWelcome");
     if (btnWelcome) btnWelcome.onclick = () => this.showWelcome();
+
+    const btnPanel = document.getElementById("btnPanel");
+    if (btnPanel) btnPanel.onclick = () => this.togglePanel();
+    const backdrop = document.getElementById("panelBackdrop");
+    if (backdrop) backdrop.onclick = () => this.closePanel();
+
+    // Sammelmenue auf schmalen Geraeten reicht an die vorhandenen Knoepfe durch
+    const moreMenu = document.getElementById("moreMenu");
+    const btnMore = document.getElementById("btnMore");
+    if (btnMore && moreMenu) {
+      btnMore.onclick = (e) => { e.stopPropagation(); moreMenu.classList.toggle("open"); };
+      document.addEventListener("click", () => moreMenu.classList.remove("open"));
+      moreMenu.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-proxy]");
+        if (btn) document.getElementById(btn.dataset.proxy).click();
+      });
+    }
 
     const btnSaveApp = document.getElementById("btnSaveApp");
     if (btnSaveApp) {

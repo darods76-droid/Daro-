@@ -13,11 +13,11 @@
   <div class="brand"><span class="mark">◺</span> DARO&#8209;CAD</div>
 
   <div class="menu">
-    <button class="btn" id="btnNew" title="Neue Zeichnung (Strg+N)">Neu</button>
-    <button class="btn" id="btnOpen" title="Zeichnung öffnen">Öffnen</button>
-    <button class="btn" id="btnSave" title="Speichern (Strg+S)">Speichern</button>
+    <button class="btn wide-only" id="btnNew" title="Neue Zeichnung (Strg+N)">Neu</button>
+    <button class="btn wide-only" id="btnOpen" title="Zeichnung öffnen">Öffnen</button>
+    <button class="btn wide-only" id="btnSave" title="Speichern (Strg+S)">Speichern</button>
     <span class="sep"></span>
-    <button class="btn" id="btnImport" title="DXF, FCStd oder STEP einlesen">Import</button>
+    <button class="btn wide-only" id="btnImport" title="DXF, FCStd oder STEP einlesen">Import</button>
     <div class="dropdown">
       <button class="btn primary" id="btnExport">Export ▾</button>
       <div class="dropdown-menu" id="exportMenu">
@@ -36,8 +36,21 @@
     <button class="btn" id="btnRedo" title="Wiederholen (Strg+Y)">↷</button>
   </div>
 
+  <div class="dropdown compact-only">
+    <button class="btn" id="btnMore" title="Weitere Befehle">☰</button>
+    <div class="dropdown-menu" id="moreMenu">
+      <button data-proxy="btnNew">Neu</button>
+      <button data-proxy="btnOpen">Öffnen</button>
+      <button data-proxy="btnSave">Speichern</button>
+      <button data-proxy="btnImport">Import</button>
+      <hr>
+      <button data-proxy="btnWelcome">Einstieg</button>
+    </div>
+  </div>
+
   <div class="spacer"></div>
-  <button class="btn" id="btnWelcome" title="Startbildschirm mit Beispiel">Einstieg</button>
+  <button class="btn wide-only" id="btnWelcome" title="Startbildschirm mit Beispiel">Einstieg</button>
+  <button class="btn compact-only" id="btnPanel" title="Layer, Schriftfeld und 3D">Mehr ▸</button>
   <button class="btn" id="btnSaveApp" hidden
           title="Die App als Datei auf diesen Rechner speichern – dort läuft sie auch ohne Internet und kann zusätzlich DXF">App speichern</button>
   <div class="freecad-badge" id="freecadBadge" title="Status der FreeCAD-Kopplung">FreeCAD: …</div>
@@ -96,7 +109,9 @@
     </div>
   </section>
 
-  <aside class="panel">
+  <div class="panel-backdrop" id="panelBackdrop" hidden></div>
+
+  <aside class="panel" id="panel">
     <div class="tabs" id="tabs">
       <button data-tab="layers" class="active">Layer</button>
       <button data-tab="props">Eigenschaften</button>

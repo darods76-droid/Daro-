@@ -110,7 +110,10 @@ body { display: flex; flex-direction: column; }
 .tool .ico { width: 16px; text-align: center; opacity: .9; font-size: 14px; }
 
 .stage { flex: 1; position: relative; min-width: 0; background: var(--bg); }
-#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; outline: none; }
+#canvas {
+  width: 100%; height: 100%; display: block; cursor: crosshair; outline: none;
+  touch-action: none;   /* sonst scrollt der Browser statt zu zeichnen */
+}
 
 .viewbar { position: absolute; right: 12px; top: 12px; display: flex; gap: 5px; }
 .chip {
@@ -232,10 +235,7 @@ dialog h3 { margin: 0 0 12px; }
   font-family: ui-monospace, Menlo, Consolas, monospace;
 }
 
-@media (max-width: 1100px) {
-  .panel { width: 262px; flex-basis: 262px; }
-  .tools { width: 112px; flex-basis: 112px; }
-}
+
 
 /* ---- Startbildschirm ---- */
 .welcome {
@@ -280,6 +280,96 @@ dialog h3 { margin: 0 0 12px; }
   .welcome-foot { flex-direction: column; align-items: flex-start; }
 }
 
+
+/* ==========================================================================
+   Schmale Bildschirme: das Zeichenblatt bekommt den Platz
+   ========================================================================== */
+
+.compact-only { display: none; }
+body.compact .compact-only { display: inline-flex; align-items: center; }
+body.compact .dropdown.compact-only { display: inline-block; }
+body.compact .wide-only { display: none; }
+
+.panel-backdrop {
+  position: fixed; inset: 0; z-index: 55;
+  background: rgba(15, 23, 42, .38);
+}
+.panel-backdrop[hidden] { display: none; }
+
+/* -- Stufe 1: Seitenleiste wird zur Schublade ---------------------------- */
+@media (max-width: 1100px) {
+  .panel {
+    position: fixed; top: 46px; right: 0; bottom: 0;
+    width: min(340px, 88vw); flex-basis: auto; z-index: 60;
+    transform: translateX(101%); transition: transform .2s ease;
+    box-shadow: -10px 0 34px rgba(15, 23, 42, .22);
+  }
+  .panel.open { transform: none; }
+  .tools { width: 116px; flex-basis: 116px; }
+}
+
+/* -- Stufe 2: Werkzeuge an den unteren Rand ------------------------------ */
+@media (max-width: 700px) {
+  .layout { flex-direction: column; }
+
+  .stage { order: 1; flex: 1 1 auto; min-height: 0; }
+
+  .tools {
+    order: 2; width: auto; flex: 0 0 auto; height: auto; max-height: 96px;
+    display: flex; flex-direction: row; gap: 5px;
+    padding: 7px 8px; overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+    box-shadow: 0 -2px 12px rgba(15, 23, 42, .18);
+  }
+  .tools h5 { display: none; }
+  .tool {
+    /* width:auto hebt die 100 % der senkrechten Leiste auf -- sonst fuellt
+       jeder Knopf die ganze Breite und es ist nur einer zu sehen. */
+    width: auto; flex: 0 0 auto; flex-direction: column; justify-content: center;
+    gap: 3px; padding: 7px 10px; min-width: 64px; max-width: 96px; min-height: 54px;
+    font-size: 11px; line-height: 1.2; text-align: center; border-radius: 8px;
+    white-space: nowrap;
+  }
+  .tool span:last-child {
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tool .ico { width: auto; font-size: 19px; }
+  .tool.active { box-shadow: 0 0 0 2px #93c5fd inset; }
+
+  .topbar { height: 44px; flex-basis: 44px; gap: 8px; padding: 0 9px; }
+  .brand { font-size: 13px; }
+  .brand .mark { font-size: 15px; }
+  .menu { gap: 4px; }
+  .sep { display: none; }
+  .freecad-badge { display: none; }
+
+  .viewbar { right: 8px; top: 8px; }
+  .chip { padding: 7px 11px; }
+
+  /* Statuszeile zweizeilig statt abgeschnitten */
+  .statusbar {
+    height: auto; flex-basis: auto; flex-wrap: wrap;
+    padding: 7px 9px; gap: 7px 10px;
+  }
+  .cmdline { order: 2; flex: 1 0 100%; }
+  .cmdline .prompt { min-width: 0; text-align: left; }
+  .toggles { order: 1; }
+  .tgl { padding: 7px 11px; }
+  .readout { order: 1; min-width: 0; margin-left: auto; }
+
+  .welcome { padding: 14px; }
+  .welcome-card { padding: 20px 18px; }
+  .welcome-choices button { padding: 14px; }
+}
+
+/* Auf Zeigergeraeten ohne Maus alles etwas groesser antippbar */
+@media (pointer: coarse) {
+  .tool { min-height: 44px; }
+  .btn { padding: 8px 12px; }
+  .tabs button { padding: 12px 3px; }
+  .layer-row { padding: 9px 8px; }
+}
+
 </style>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230f172a'/><path d='M7 24 L16 8 L25 24' stroke='%2338bdf8' stroke-width='2.5' fill='none'/><path d='M11 19h10' stroke='%23f59e0b' stroke-width='2'/></svg>">
 </head>
@@ -289,11 +379,11 @@ dialog h3 { margin: 0 0 12px; }
   <div class="brand"><span class="mark">◺</span> DARO&#8209;CAD</div>
 
   <div class="menu">
-    <button class="btn" id="btnNew" title="Neue Zeichnung (Strg+N)">Neu</button>
-    <button class="btn" id="btnOpen" title="Zeichnung öffnen">Öffnen</button>
-    <button class="btn" id="btnSave" title="Speichern (Strg+S)">Speichern</button>
+    <button class="btn wide-only" id="btnNew" title="Neue Zeichnung (Strg+N)">Neu</button>
+    <button class="btn wide-only" id="btnOpen" title="Zeichnung öffnen">Öffnen</button>
+    <button class="btn wide-only" id="btnSave" title="Speichern (Strg+S)">Speichern</button>
     <span class="sep"></span>
-    <button class="btn" id="btnImport" title="DXF, FCStd oder STEP einlesen">Import</button>
+    <button class="btn wide-only" id="btnImport" title="DXF, FCStd oder STEP einlesen">Import</button>
     <div class="dropdown">
       <button class="btn primary" id="btnExport">Export ▾</button>
       <div class="dropdown-menu" id="exportMenu">
@@ -312,8 +402,21 @@ dialog h3 { margin: 0 0 12px; }
     <button class="btn" id="btnRedo" title="Wiederholen (Strg+Y)">↷</button>
   </div>
 
+  <div class="dropdown compact-only">
+    <button class="btn" id="btnMore" title="Weitere Befehle">☰</button>
+    <div class="dropdown-menu" id="moreMenu">
+      <button data-proxy="btnNew">Neu</button>
+      <button data-proxy="btnOpen">Öffnen</button>
+      <button data-proxy="btnSave">Speichern</button>
+      <button data-proxy="btnImport">Import</button>
+      <hr>
+      <button data-proxy="btnWelcome">Einstieg</button>
+    </div>
+  </div>
+
   <div class="spacer"></div>
-  <button class="btn" id="btnWelcome" title="Startbildschirm mit Beispiel">Einstieg</button>
+  <button class="btn wide-only" id="btnWelcome" title="Startbildschirm mit Beispiel">Einstieg</button>
+  <button class="btn compact-only" id="btnPanel" title="Layer, Schriftfeld und 3D">Mehr ▸</button>
   <button class="btn" id="btnSaveApp" hidden
           title="Die App als Datei auf diesen Rechner speichern – dort läuft sie auch ohne Internet und kann zusätzlich DXF">App speichern</button>
   <div class="freecad-badge" id="freecadBadge" title="Status der FreeCAD-Kopplung">FreeCAD: …</div>
@@ -372,7 +475,9 @@ dialog h3 { margin: 0 0 12px; }
     </div>
   </section>
 
-  <aside class="panel">
+  <div class="panel-backdrop" id="panelBackdrop" hidden></div>
+
+  <aside class="panel" id="panel">
     <div class="tabs" id="tabs">
       <button data-tab="layers" class="active">Layer</button>
       <button data-tab="props">Eigenschaften</button>
@@ -4070,6 +4175,42 @@ const __m_tools = (function () {
   // Werkzeugdefinitionen
   // ---------------------------------------------------------------------------
 
+  /** Zweiten Eckpunkt so verschieben, dass ein Quadrat entsteht. */
+  function squareCorner(a, p) {
+    const dx = p[0] - a[0], dy = p[1] - a[1];
+    const side = Math.max(Math.abs(dx), Math.abs(dy));
+    return [a[0] + (dx < 0 ? -side : side), a[1] + (dy < 0 ? -side : side)];
+  }
+
+  /**
+   * Rechteck oder Quadrat.
+   * Beim Rechteck erzwingt die Umschalttaste ebenfalls gleiche Seiten -- so wie
+   * man es aus anderen Zeichenprogrammen kennt.
+   */
+  function rectTool(label, forceSquare) {
+    const corner = (s, a, p) =>
+      (forceSquare || s.opts.square || s.app.shiftKey) ? squareCorner(a, p) : p;
+    const shape = (a, b, layer) => ({
+      type: "polyline", closed: true, layer,
+      pts: [a, [b[0], a[1]], b, [a[0], b[1]]],
+    });
+    return {
+      label, group: "Zeichnen", picks: 2,
+      hints: forceSquare
+        ? ["Erste Ecke", "Gegenüberliegende Ecke"]
+        : ["Erste Ecke", "Gegenüberliegende Ecke (Umschalt = Quadrat)"],
+      build: (s) => {
+        const a = s.pts[0];
+        return [shape(a, corner(s, a, s.pts[1]))];
+      },
+      preview(s, p) {
+        if (!s.pts.length) return [];
+        const a = s.pts[0];
+        return [shape(a, corner(s, a, p), s.layer())];
+      },
+    };
+  }
+
   const dimTool = (kind, label, extra = {}) => ({
     label, group: "Bemassung", layer: "Bemassung",
     hints: extra.hints || ["Erster Punkt", "Zweiter Punkt", "Lage der Maßlinie"],
@@ -4117,20 +4258,8 @@ const __m_tools = (function () {
       },
     },
 
-    rect: {
-      label: "Rechteck", group: "Zeichnen", picks: 2, hints: ["Erste Ecke", "Gegenüberliegende Ecke"],
-      build: (s) => {
-        const [a, b] = s.pts;
-        return [{ type: "polyline", closed: true,
-          pts: [a, [b[0], a[1]], b, [a[0], b[1]]] }];
-      },
-      preview(s, p) {
-        if (!s.pts.length) return [];
-        const a = s.pts[0];
-        return [{ type: "polyline", closed: true, layer: s.layer(),
-          pts: [a, [p[0], a[1]], p, [a[0], p[1]]] }];
-      },
-    },
+    rect: rectTool("Rechteck", false),
+    square: rectTool("Quadrat", true),
 
     circle: {
       label: "Kreis", group: "Zeichnen", picks: 2, hints: ["Mittelpunkt", "Radius / Punkt"],
@@ -4843,7 +4972,7 @@ const __m_app = (function () {
     point: "·", text: "T", hatch: "▨", dimlinear: "↔", dimaligned: "⤢",
     dimangular: "∠", dimradius: "⌀", measure: "⟺", move: "✥", copy: "⧉",
     rotate: "↻", mirror: "⇄", scale: "⤡", offset: "⇉", trim: "✂", extend: "⇥",
-    fillet: "◟", chamfer: "◺", explode: "⁂", erase: "␡",
+    fillet: "◟", chamfer: "◺", explode: "⁂", erase: "␡", square: "□",
   };
 
   const COMMANDS = {
@@ -4856,9 +4985,14 @@ const __m_app = (function () {
     drehen: "rotate", d: "rotate", spiegeln: "mirror", sp: "mirror",
     skalieren: "scale", versatz: "offset", o: "offset", stutzen: "trim", s: "trim",
     dehnen: "extend", e: "extend", runden: "fillet", f: "fillet", fasen: "chamfer",
+    quadrat: "square", q: "square",
     auswahl: "select", esc: "select", aufloesen: "explode", "auflösen": "explode",
     loeschen: "erase", "löschen": "erase",
   };
+
+  // Auf schmalen Geraeten zuerst das, womit man tatsaechlich anfaengt.
+  const COMPACT_ORDER = ["line", "rect", "square", "circle", "arc", "text",
+    "select", "erase", "move", "polyline", "hatch", "dimlinear", "measure"];
 
   class App {
     constructor() {
@@ -4875,6 +5009,8 @@ const __m_app = (function () {
       this.cursor = [0, 0];
       this.dirty = true;
       this.freecad = { available: false };
+      this.compact = null;              // wird von applyLayout() gesetzt
+      this.shiftKey = false;
 
       // Zeicheneinstellungen (aus der Seitenleiste)
       this.textHeight = 3.5;
@@ -4887,7 +5023,7 @@ const __m_app = (function () {
       this.gridSnapStep = 10;
       this.diameterInput = false;
 
-      this.buildTools();
+      this.applyLayout();               // legt auch die Werkzeugleiste an
       this.buildSelects();
       this.bindCanvas();
       this.bindUI();
@@ -4900,7 +5036,11 @@ const __m_app = (function () {
         this.renderProps();
       });
 
-      window.addEventListener("resize", () => { this.renderer.resize(); this.invalidate(); });
+      window.addEventListener("resize", () => {
+        this.applyLayout();
+        this.renderer.resize();
+        this.invalidate();
+      });
       this.renderer.resize();
       this.startDrawing();
       this.loop();
@@ -4984,10 +5124,14 @@ const __m_app = (function () {
         this.renderLayers();
         this.renderer.zoomSheet();
         this.invalidate();
-        this.toast("Beispiel geladen. Mausrad zoomt, mittlere Taste verschiebt.", 6000);
+        this.toast("Beispiel geladen. Zum Zoomen Mausrad oder zwei Finger.", 6000);
         return;
       }
+      // Leeres Blatt: gleich mit dem Linien-Werkzeug beginnen, damit der erste
+      // Klick zeichnet und nicht erst etwas gesucht werden muss.
+      this.startTool("line");
       this.canvas.focus();
+      this.toast("Linie: zwei Punkte antippen. Werkzeug unten wechseln.", 6000);
     }
 
     /** Die App selbst als Datei herausgeben (nur in der Online-Fassung angeboten). */
@@ -5004,9 +5148,30 @@ const __m_app = (function () {
 
     // -- Aufbau --------------------------------------------------------------
 
+    toolButton(name) {
+      const btn = document.createElement("button");
+      btn.className = "tool";
+      btn.dataset.tool = name;
+      btn.title = TOOLS[name].label;
+      btn.innerHTML = `<span class="ico">${ICONS[name] || "•"}</span>` +
+        `<span>${TOOLS[name].label}</span>`;
+      btn.addEventListener("click", () => this.startTool(name));
+      return btn;
+    }
+
     buildTools() {
       const host = document.getElementById("tools");
       host.innerHTML = "";
+
+      if (this.compact) {
+        // Waagerechte Leiste am unteren Rand: Grundformen zuerst, Rest beim Wischen
+        const rest = Object.keys(TOOLS).filter((n) => !COMPACT_ORDER.includes(n));
+        for (const name of [...COMPACT_ORDER, ...rest]) {
+          if (TOOLS[name]) host.appendChild(this.toolButton(name));
+        }
+        return;
+      }
+
       for (const group of TOOL_GROUPS) {
         const names = Object.keys(TOOLS).filter((n) => TOOLS[n].group === group);
         if (!names.length) continue;
@@ -5014,17 +5179,32 @@ const __m_app = (function () {
         title.textContent = group === "Aendern" ? "Ändern"
           : group === "Bemassung" ? "Bemaßung" : group;
         host.appendChild(title);
-        for (const name of names) {
-          const btn = document.createElement("button");
-          btn.className = "tool";
-          btn.dataset.tool = name;
-          btn.innerHTML = `<span class="ico">${ICONS[name] || "•"}</span>` +
-            `<span>${TOOLS[name].label}</span>`;
-          btn.addEventListener("click", () => this.startTool(name));
-          host.appendChild(btn);
-        }
+        for (const name of names) host.appendChild(this.toolButton(name));
       }
     }
+
+    /** Schmaler Bildschirm? Dann Werkzeuge unten und Seitenleiste als Schublade. */
+    applyLayout() {
+      const compact = window.innerWidth <= 700;
+      if (compact === this.compact) return;
+      this.compact = compact;
+      document.body.classList.toggle("compact", compact);
+      if (!compact) this.closePanel();
+      this.buildTools();
+      this.refreshUI();
+    }
+
+    togglePanel(open) {
+      const panel = document.getElementById("panel");
+      const backdrop = document.getElementById("panelBackdrop");
+      if (!panel) return;
+      const show = open ?? !panel.classList.contains("open");
+      panel.classList.toggle("open", show);
+      if (backdrop) backdrop.hidden = !show;
+      if (show) this.view3d.draw();
+    }
+
+    closePanel() { this.togglePanel(false); }
 
     buildSelects() {
       const sheet = document.getElementById("metaSheet");
@@ -5061,6 +5241,28 @@ const __m_app = (function () {
       const c = this.canvas;
       let panning = false, panLast = null, windowStart = null, downPoint = null;
 
+      // Fingerbedienung: ein Finger zeichnet, zwei Finger schieben und zoomen.
+      const pointers = new Map();       // pointerId -> [x, y] in Fensterkoordinaten
+      let gesture = null;               // letzter Abstand und Mittelpunkt
+      let gestureActive = false;        // solange gesetzt, wird kein Punkt gesetzt
+
+      const pinch = () => {
+        const pts = [...pointers.values()];
+        const dist = Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]);
+        const cx = (pts[0][0] + pts[1][0]) / 2;
+        const cy = (pts[0][1] + pts[1][1]) / 2;
+        if (gesture) {
+          const rect = c.getBoundingClientRect();
+          const factor = gesture.dist > 1 ? dist / gesture.dist : 1;
+          if (isFinite(factor) && factor > 0.2 && factor < 5) {
+            this.renderer.zoomAt([cx - rect.left, cy - rect.top], factor);
+          }
+          this.renderer.pan(cx - gesture.cx, cy - gesture.cy);
+          this.invalidate();
+        }
+        gesture = { dist, cx, cy };
+      };
+
       const modelAt = (evt) => {
         const rect = c.getBoundingClientRect();
         return this.renderer.toModel([evt.clientX - rect.left, evt.clientY - rect.top]);
@@ -5070,6 +5272,18 @@ const __m_app = (function () {
 
       c.addEventListener("pointerdown", (e) => {
         c.focus();
+        this.shiftKey = e.shiftKey;
+        pointers.set(e.pointerId, [e.clientX, e.clientY]);
+        if (pointers.size === 2) {
+          // Zweiter Finger: angefangene Eingabe verwerfen und in den Gestenmodus
+          gestureActive = true;
+          gesture = null;
+          windowStart = null;
+          this.renderer.preview = null;
+          this.invalidate();
+          return;
+        }
+        if (gestureActive) return;
         if (e.button === 1) {
           panning = true; panLast = [e.clientX, e.clientY];
           c.setPointerCapture(e.pointerId); e.preventDefault(); return;
@@ -5084,6 +5298,10 @@ const __m_app = (function () {
       });
 
       c.addEventListener("pointermove", (e) => {
+        this.shiftKey = e.shiftKey;
+        if (pointers.has(e.pointerId)) pointers.set(e.pointerId, [e.clientX, e.clientY]);
+        if (pointers.size >= 2) { pinch(); return; }
+        if (gestureActive) return;
         if (panning) {
           this.renderer.pan(e.clientX - panLast[0], e.clientY - panLast[1]);
           panLast = [e.clientX, e.clientY];
@@ -5115,7 +5333,17 @@ const __m_app = (function () {
         this.invalidate();
       });
 
+      const endPointer = (e) => {
+        pointers.delete(e.pointerId);
+        if (pointers.size < 2) gesture = null;
+        if (gestureActive && pointers.size === 0) gestureActive = false;
+      };
+      c.addEventListener("pointercancel", endPointer);
+
       c.addEventListener("pointerup", (e) => {
+        const wasGesture = gestureActive;
+        endPointer(e);
+        if (wasGesture) return;          // Ende einer Geste setzt keinen Punkt
         if (panning && e.button === 1) { panning = false; return; }
         if (e.button !== 0) return;
         const raw = modelAt(e);
@@ -5292,7 +5520,10 @@ const __m_app = (function () {
         if (e.key === "Escape") { cmd.value = ""; this.session.cancel(); this.invalidate(); }
       });
 
+      window.addEventListener("keyup", (e) => { this.shiftKey = e.shiftKey; });
+
       window.addEventListener("keydown", (e) => {
+        this.shiftKey = e.shiftKey;
         const inField = e.target.matches("input, select, textarea") && e.target.id !== "cmd";
         if (e.key === "F1") { e.preventDefault(); document.getElementById("helpDialog").showModal(); return; }
         if (e.key === "F3") { e.preventDefault(); this.toggle("tglSnap"); return; }
@@ -5456,6 +5687,23 @@ const __m_app = (function () {
 
       const btnWelcome = document.getElementById("btnWelcome");
       if (btnWelcome) btnWelcome.onclick = () => this.showWelcome();
+
+      const btnPanel = document.getElementById("btnPanel");
+      if (btnPanel) btnPanel.onclick = () => this.togglePanel();
+      const backdrop = document.getElementById("panelBackdrop");
+      if (backdrop) backdrop.onclick = () => this.closePanel();
+
+      // Sammelmenue auf schmalen Geraeten reicht an die vorhandenen Knoepfe durch
+      const moreMenu = document.getElementById("moreMenu");
+      const btnMore = document.getElementById("btnMore");
+      if (btnMore && moreMenu) {
+        btnMore.onclick = (e) => { e.stopPropagation(); moreMenu.classList.toggle("open"); };
+        document.addEventListener("click", () => moreMenu.classList.remove("open"));
+        moreMenu.addEventListener("click", (e) => {
+          const btn = e.target.closest("button[data-proxy]");
+          if (btn) document.getElementById(btn.dataset.proxy).click();
+        });
+      }
 
       const btnSaveApp = document.getElementById("btnSaveApp");
       if (btnSaveApp) {

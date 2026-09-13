@@ -52,6 +52,42 @@ export function applyOrtho(from, to, mode) {
 // Werkzeugdefinitionen
 // ---------------------------------------------------------------------------
 
+/** Zweiten Eckpunkt so verschieben, dass ein Quadrat entsteht. */
+function squareCorner(a, p) {
+  const dx = p[0] - a[0], dy = p[1] - a[1];
+  const side = Math.max(Math.abs(dx), Math.abs(dy));
+  return [a[0] + (dx < 0 ? -side : side), a[1] + (dy < 0 ? -side : side)];
+}
+
+/**
+ * Rechteck oder Quadrat.
+ * Beim Rechteck erzwingt die Umschalttaste ebenfalls gleiche Seiten -- so wie
+ * man es aus anderen Zeichenprogrammen kennt.
+ */
+function rectTool(label, forceSquare) {
+  const corner = (s, a, p) =>
+    (forceSquare || s.opts.square || s.app.shiftKey) ? squareCorner(a, p) : p;
+  const shape = (a, b, layer) => ({
+    type: "polyline", closed: true, layer,
+    pts: [a, [b[0], a[1]], b, [a[0], b[1]]],
+  });
+  return {
+    label, group: "Zeichnen", picks: 2,
+    hints: forceSquare
+      ? ["Erste Ecke", "Gegenüberliegende Ecke"]
+      : ["Erste Ecke", "Gegenüberliegende Ecke (Umschalt = Quadrat)"],
+    build: (s) => {
+      const a = s.pts[0];
+      return [shape(a, corner(s, a, s.pts[1]))];
+    },
+    preview(s, p) {
+      if (!s.pts.length) return [];
+      const a = s.pts[0];
+      return [shape(a, corner(s, a, p), s.layer())];
+    },
+  };
+}
+
 const dimTool = (kind, label, extra = {}) => ({
   label, group: "Bemassung", layer: "Bemassung",
   hints: extra.hints || ["Erster Punkt", "Zweiter Punkt", "Lage der Maßlinie"],
@@ -99,20 +135,8 @@ export const TOOLS = {
     },
   },
 
-  rect: {
-    label: "Rechteck", group: "Zeichnen", picks: 2, hints: ["Erste Ecke", "Gegenüberliegende Ecke"],
-    build: (s) => {
-      const [a, b] = s.pts;
-      return [{ type: "polyline", closed: true,
-        pts: [a, [b[0], a[1]], b, [a[0], b[1]]] }];
-    },
-    preview(s, p) {
-      if (!s.pts.length) return [];
-      const a = s.pts[0];
-      return [{ type: "polyline", closed: true, layer: s.layer(),
-        pts: [a, [p[0], a[1]], p, [a[0], p[1]]] }];
-    },
-  },
+  rect: rectTool("Rechteck", false),
+  square: rectTool("Quadrat", true),
 
   circle: {
     label: "Kreis", group: "Zeichnen", picks: 2, hints: ["Mittelpunkt", "Radius / Punkt"],
